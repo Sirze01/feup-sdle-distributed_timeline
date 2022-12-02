@@ -1,16 +1,15 @@
-BINARY_NAME=main.out
-
-deps:
-	go get github.com/libp2p/go-libp2p
-	go get github.com/multiformats/go-multiaddr
+BINARY_NAME=rettiwt
 
 all: build test
 
-build:
-	go build -o ${BINARY_NAME} main.go
+build: 
+	go build -o ${BINARY_NAME} ./
 
 test:
-	go test -v main.go
+	go test -v ./
+
+run:
+	go run ./
 
 clean:
 	go clean
