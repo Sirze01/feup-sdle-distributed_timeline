@@ -7,14 +7,16 @@ import (
 
 func main() {
 	flag.Usage = func() {
-		fmt.Println("Usage: rettiwt -m (bootstrap -i idFilePath)|(peer -u username -w password) [options]")
+		fmt.Println("Usage: rettiwt -m (bootstrap -i idFilePath)|(peer [-r] -u username -w password) [options]")
 		fmt.Println("Options:\n\t-p port")
 	}
 
 	mode := flag.String("m", "peer", "bootstrap or peer")
 	idFilePath := flag.String("i", "", "bootstrap node ID file path")
+	register := flag.Bool("r", false, "register a new user")
 	username := flag.String("u", "", "username")
 	password := flag.String("w", "", "password")
+
 	port := flag.Int("p", 8080, "port")
 
 	flag.Parse()
@@ -33,7 +35,7 @@ func main() {
 			flag.Usage()
 			return
 		}
-		peerNodeInit(*username, *password, *port)
+		peerNodeInit(*register, *username, *password, *port)
 		fmt.Printf("peer mode on port %d, username %s, password %s\n", *port, *username, *password)
 	} else {
 		flag.Usage()
