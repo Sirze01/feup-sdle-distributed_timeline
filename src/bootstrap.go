@@ -18,6 +18,16 @@ import (
 	log "github.com/ipfs/go-log/v2"
 )
 
+type KeyPair struct {
+	PrvKey []byte
+	PubKey []byte
+}
+
+type BoostrapNode struct {
+	Id   string
+	Port int
+}
+
 var logger = log.Logger("bootstrap")
 
 func bootstrapNodeInit(idFilePath, idsListFilePath string, port int) {
@@ -73,7 +83,7 @@ func bootstrapNodeInit(idFilePath, idsListFilePath string, port int) {
 	}
 	host.Network().Notify(&networkNotifiee)
 	logger.Infof("Host created. We are: %s", host.ID())
-	err = saveNodeId(idsListFilePath, host.ID().String())
+	err = saveNodeId(idsListFilePath, host.ID().String(), port)
 	if err != nil {
 		logger.Warn("Error saving node ID to list: ", err)
 	}
@@ -84,11 +94,6 @@ func bootstrapNodeInit(idFilePath, idsListFilePath string, port int) {
 	}
 
 	select {}
-}
-
-type KeyPair struct {
-	PrvKey []byte
-	PubKey []byte
 }
 
 func loadKeyPair(idFilePath string) (crypto.PrivKey, crypto.PubKey, error) {
@@ -147,35 +152,36 @@ func saveKeyPair(idFilePath string, prvKey crypto.PrivKey, pubKey crypto.PubKey)
 	return nil
 }
 
-func saveNodeId(idsListFilePath string, id string) error {
-	var ids []string
-	var jsonIds []byte
+func saveNodeId(idsListFilePath string, id string, port int) error {
+	var bootstrapNodes []BoostrapNode
+	var jsonBoostrapNodes []byte
 	if _, err := os.Stat(idsListFilePath); err != nil {
-		ids = append(ids, id)
-
-		jsonIds, err = json.MarshalIndent(ids, "", "    ")
+		node := BoostrapNode{Id: id, Port: port}
+		bootstrapNodes = append(bootstrapNodes, node)
+		jsonBoostrapNodes, err = json.MarshalIndent(bootstrapNodes, "", "    ")
 		if err != nil {
 			return err
 		}
 	} else {
-		jsonIds, err = os.ReadFile(idsListFilePath)
+		jsonBoostrapNodes, err = os.ReadFile(idsListFilePath)
 		if err != nil {
 			return err
 		}
 
-		err = json.Unmarshal(jsonIds, &ids)
+		err = json.Unmarshal(jsonBoostrapNodes, &bootstrapNodes)
 		if err != nil {
 			return err
 		}
 
-		for _, listedID := range ids {
-			if id == listedID {
+		for _, listedID := range bootstrapNodes {
+			if id == listedID.Id {
 				return nil
 			}
 		}
 
-		ids = append(ids, id)
-		jsonIds, err = json.MarshalIndent(ids, "", "    ")
+		node := BoostrapNode{Id: id, Port: port}
+		bootstrapNodes = append(bootstrapNodes, node)
+		jsonBoostrapNodes, err = json.MarshalIndent(bootstrapNodes, "", "    ")
 		if err != nil {
 			return err
 		}
@@ -186,7 +192,7 @@ func saveNodeId(idsListFilePath string, id string) error {
 		return err
 	}
 
-	err = os.WriteFile(idsListFilePath, jsonIds, 0666)
+	err = os.WriteFile(idsListFilePath, jsonBoostrapNodes, 0666)
 
 	if err != nil {
 		return err

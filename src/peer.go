@@ -7,6 +7,7 @@ import (
 	"os"
 	filepath "path/filepath"
 	"sync"
+	"time"
 
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
@@ -24,7 +25,7 @@ var (
 	BootstrapIP = "127.0.0.1"
 
 	//IDS do PedroS, é preciso mudar para os ids dos nossos nodes de bootstrap ou por um mecânismo que leia os ids dos nodes de bootstrap apartir dos files
-	BootstrapIds = []string{}
+	BootstrapNodes = []BoostrapNode{}
 )
 
 func peerNodeInit(register bool, username string, password string, port int) {
@@ -88,21 +89,34 @@ func peerNodeInit(register bool, username string, password string, port int) {
 
 		var kademliaDHT *dht.IpfsDHT = initDHT(ctx, host)
 
-		go discoverPeers(ctx, host, kademliaDHT)
+		channel := make(chan string)
+		go discoverPeers(channel, ctx, host, kademliaDHT)
+		select {
+		case msg1 := <-channel:
+			fmt.Println(msg1)
+		case <-time.After(3 * time.Second):
+			fmt.Println("Timeout!")
+		}
 
 		ps, err := pubsub.NewGossipSub(ctx, host)
 		if err != nil {
 			panic(err)
 		}
 		//Joins own topic
+		fmt.Println("here4")
+
 		topic_own, err := ps.Join(username)
 		if err != nil {
 			panic(err)
 		}
+		fmt.Println("here5")
+
 		topic_general, err := ps.Join("rettiwt")
 		if err != nil {
 			panic(err)
 		}
+
+		fmt.Println("here6")
 
 		_, err = topic_own.Subscribe()
 		if err != nil {
@@ -121,12 +135,12 @@ func peerNodeInit(register bool, username string, password string, port int) {
 
 func getBootstrapIds() {
 
-	nodeIds, err := os.ReadFile("./nodes/bootstrap_nodes.json")
+	nodes, err := os.ReadFile("./nodes/bootstrap_nodes.json")
 	if err != nil {
 		panic(err)
 	}
 
-	err = json.Unmarshal(nodeIds, &BootstrapIds)
+	err = json.Unmarshal(nodes, &BootstrapNodes)
 	if err != nil {
 		panic(err)
 	}
@@ -139,16 +153,20 @@ func initDHT(ctx context.Context, h host.Host) *dht.IpfsDHT {
 	// DHT, so that the bootstrapping node of the DHT can go down without
 	// inhibiting future peer discovery.
 	kademliaDHT, err := dht.New(ctx, h)
+	fmt.Println("here1")
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println("here2")
+
 	if err = kademliaDHT.Bootstrap(ctx); err != nil {
 		panic(err)
 	}
+	fmt.Println("here3")
+
 	var wg sync.WaitGroup
-	var counter int = 1
-	for _, BSid := range BootstrapIds {
-		BSMultiAddr, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/700%d/p2p/%s", BootstrapIP, counter, BSid))
+	for _, bsnode := range BootstrapNodes {
+		BSMultiAddr, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/700%d/p2p/%s", BootstrapIP, bsnode.Port, bsnode.Id))
 		peerinfo, _ := peer.AddrInfoFromP2pAddr(BSMultiAddr)
 		wg.Add(1)
 		go func() {
@@ -159,16 +177,17 @@ func initDHT(ctx context.Context, h host.Host) *dht.IpfsDHT {
 				logger.Info("Connection established with bootstrap node:", *peerinfo)
 			}
 		}()
-		counter++
 	}
 	wg.Wait()
 
 	return kademliaDHT
 }
 
-func discoverPeers(ctx context.Context, h host.Host, kademliaDHT *dht.IpfsDHT) {
+func discoverPeers(c chan string, ctx context.Context, h host.Host, kademliaDHT *dht.IpfsDHT) {
 	routingDiscovery := drouting.NewRoutingDiscovery(kademliaDHT)
 	dutil.Advertise(ctx, routingDiscovery, "rettiwt")
+
+	fmt.Printf("Successfully announced ourselves as a bootstrap node\n")
 
 	// Look for others who have announced and attempt to connect to them
 	anyConnected := false
@@ -191,7 +210,7 @@ func discoverPeers(ctx context.Context, h host.Host, kademliaDHT *dht.IpfsDHT) {
 			}
 		}
 	}
-	fmt.Println("Peer discovery complete")
+	c <- "Peer discovery complete"
 }
 func makeHost(port int, prvKey crypto.PrivKey) (host.Host, error) {
 	// Creates a new RSA key pair for this host.
