@@ -23,7 +23,7 @@ func main() {
 	password := flag.String("w", "", "password")
 
 	// Common options
-	port := flag.Int("p", 8080, "port")
+	port := flag.Int("p", 7001, "port")
 
 	flag.Parse()
 

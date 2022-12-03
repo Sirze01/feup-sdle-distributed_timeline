@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"os"
 	filepath "path/filepath"
@@ -61,7 +62,12 @@ func bootstrapNodeInit(idFilePath, idsListFilePath string, port int) {
 	}
 
 	// Create a new libp2p Host that uses the provided identity
-	host, err := libp2p.New(libp2p.Identity(prvKey))
+	sourceMultiAddr, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", port))
+
+	host, err := libp2p.New(
+		libp2p.ListenAddrs(sourceMultiAddr),
+		libp2p.Identity(prvKey),
+	)
 	if err != nil {
 		panic(err)
 	}

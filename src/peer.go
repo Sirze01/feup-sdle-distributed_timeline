@@ -24,10 +24,7 @@ var (
 	BootstrapIP = "127.0.0.1"
 
 	//IDS do PedroS, é preciso mudar para os ids dos nossos nodes de bootstrap ou por um mecânismo que leia os ids dos nodes de bootstrap apartir dos files
-	BootstrapIds = []string{
-		"QmVVP9rWw5yLCbZVQzoDSUZrz7VcS14TQ3GL2X5yXqqcPb",
-		"QmcMhtRvVXPtLzRuGUjrrUGeALfCPPPxG3uxXWdBX7qd8q",
-		"QmTv6dFFFhtUB37tJDuFghRkvGfP9CDfYC77sBVnAHmrU2"}
+	BootstrapIds = []string{}
 )
 
 func peerNodeInit(register bool, username string, password string, port int) {
@@ -35,8 +32,8 @@ func peerNodeInit(register bool, username string, password string, port int) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var prvKey crypto.PrivKey
-	var pubKey crypto.PubKey
+	getBootstrapIds()
+
 	var idFilePath = "./nodes/" + username + ".json"
 	if register {
 		//TODO
@@ -119,6 +116,20 @@ func peerNodeInit(register bool, username string, password string, port int) {
 	}
 
 	select {}
+
+}
+
+func getBootstrapIds() {
+
+	nodeIds, err := os.ReadFile("./nodes/bootstrap_nodes.json")
+	if err != nil {
+		panic(err)
+	}
+
+	err = json.Unmarshal(nodeIds, &BootstrapIds)
+	if err != nil {
+		panic(err)
+	}
 
 }
 
