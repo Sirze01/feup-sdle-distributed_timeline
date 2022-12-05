@@ -126,7 +126,10 @@ func peerNodeInit(register bool, username string, password string, port int) {
 
 		switch words[0] {
 		case "publish":
-			Publish(words[1], username)
+			err := Publish(words[1], username)
+			if err != nil {
+				fmt.Println(err)
+			}
 			break
 		case "follow":
 			FollowUser(ctx, ps, host.ID(), words[1])
@@ -227,6 +230,7 @@ func discoverPeers(c chan string, ctx context.Context, h host.Host, kademliaDHT 
 	}
 	c <- "Peer discovery complete"
 }
+
 func makeHost(port int, prvKey crypto.PrivKey) (host.Host, error) {
 	// Creates a new RSA key pair for this host.
 

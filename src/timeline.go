@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	"sync"
 
 	"github.com/libp2p/go-libp2p/core/peer"
 
@@ -81,6 +80,8 @@ func FollowUser(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, userName
 		Messages:     make(chan *Message, TimeLineBufSize),
 	}
 
+	TimeLines = append(TimeLines, cr)
+
 	// start reading messages from the subscription in a loop
 	//go cr.readLoop()
 	return cr, nil
@@ -104,7 +105,7 @@ func UnfollowUser(ctx context.Context, ps *pubsub.PubSub, userName string) error
 		return nil
 	}
 
-	return fmt.Errorf("User not found")
+	return fmt.Errorf("user not found")
 
 }
 
@@ -125,7 +126,7 @@ func Publish(message string, username string) error {
 		}
 	}
 
-	return fmt.Errorf("User not found")
+	return fmt.Errorf("user not found")
 }
 
 func (cr *UserTimeLine) ListPeers() []peer.ID {
@@ -133,8 +134,10 @@ func (cr *UserTimeLine) ListPeers() []peer.ID {
 }
 
 // readLoop pulls messages from the pubsub topic and pushes them onto the Messages channel.
-func (cr *UserTimeLine) readLoop() {
+func (cr *UserTimeLine) readLoop(c chan struct{}) {
+	defer close(c)
 	for {
+
 		msg, err := cr.sub.Next(cr.ctx)
 		if err != nil {
 			close(cr.Messages)
@@ -169,21 +172,26 @@ func ChanToSlice(ch interface{}) interface{} {
 func UpdateTimeline() {
 	allMessages := []Message{}
 
-	var wg sync.WaitGroup
+	fmt.Println("Updating timeline")
+	c := make(chan struct{})
 	for _, timeline := range TimeLines {
-		wg.Add(1)
-		go timeline.readLoop()
-	}
-	wg.Wait()
 
+		go timeline.readLoop(c)
+	}
+
+	fmt.Println("All timelines are updated")
 	for _, timeline := range TimeLines {
 		timeline_msgs := ChanToSlice(timeline.Messages).([]Message)
 		allMessages = append(allMessages, timeline_msgs...)
 	}
 
+	fmt.Println("All messages are collected")
+
 	sort.Slice(allMessages, func(i, j int) bool {
 		return allMessages[i].TimeStamp.After(allMessages[j].TimeStamp)
 	})
+
+	fmt.Println("All messages are sorted")
 
 	for _, message := range allMessages {
 		fmt.Println(message)
