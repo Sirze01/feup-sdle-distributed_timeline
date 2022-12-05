@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"sync"
 
 	"github.com/libp2p/go-libp2p/core/peer"
 
@@ -174,10 +175,12 @@ func UpdateTimeline() {
 
 	fmt.Println("Updating timeline")
 	c := make(chan struct{})
+	wg := sync.WaitGroup{}
 	for _, timeline := range TimeLines {
-
+		wg.Add(1)
 		go timeline.readLoop(c)
 	}
+	wg.Wait()
 
 	fmt.Println("All timelines are updated")
 	for _, timeline := range TimeLines {
