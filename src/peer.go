@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	filepath "path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/libp2p/go-libp2p"
@@ -33,6 +35,9 @@ func peerNodeInit(register bool, username string, password string, port int) {
 	defer cancel()
 
 	getBootstrapIds()
+
+	var host host.Host
+	var ps *pubsub.PubSub
 
 	var idFilePath = "./nodes/" + username + ".json"
 	if register {
@@ -81,7 +86,7 @@ func peerNodeInit(register bool, username string, password string, port int) {
 		if err != nil {
 			panic(err)
 		}
-		host, err := makeHost(port, prvKey)
+		host, err = makeHost(port, prvKey)
 		if err != nil {
 			panic(err)
 		}
@@ -99,35 +104,52 @@ func peerNodeInit(register bool, username string, password string, port int) {
 		// 	fmt.Println("Timeout!")
 		// }
 
-		ps, err := pubsub.NewGossipSub(ctx, host)
+		ps, err = pubsub.NewGossipSub(ctx, host)
 		if err != nil {
 			panic(err)
 		}
 		//Joins own topic
-		topic_own, err := ps.Join(username)
-		if err != nil {
-			panic(err)
-		}
-
-		topic_general, err := ps.Join("rettiwt")
-		if err != nil {
-			panic(err)
-		}
-
-		_, err = topic_own.Subscribe()
-		if err != nil {
-			panic(err)
-		}
-
-		_, err = topic_general.Subscribe()
-		if err != nil {
-			panic(err)
-		}
+		FollowUser(ctx, ps, host.ID(), username)
+		FollowUser(ctx, ps, host.ID(), "rettitw")
 	}
 
 	fmt.Println("Idle...")
 
-	select {}
+	var text string
+
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		fmt.Print("Please enter command (help | publish <string> | follow <string> | unfollow <string> | update) : ")
+		text, _ = reader.ReadString('\n')
+		text = strings.Replace(text, "\n", "", -1)
+		words := strings.Fields(text)
+
+		switch words[0] {
+		case "publish":
+			Publish(words[1], username)
+			break
+		case "follow":
+			FollowUser(ctx, ps, host.ID(), words[1])
+			break
+		case "unfollow":
+			UnfollowUser(ctx, ps, words[1])
+			break
+		case "update":
+			UpdateTimeline()
+			break
+		case "help":
+			fmt.Println("publish <string> - Publishes a tweet")
+			fmt.Println("follow <string> - Follows a user")
+			fmt.Println("unfollow <string> - Unfollows a user")
+			fmt.Println("update - Updates the timeline")
+			break
+		default:
+			fmt.Println("Invalid command")
+			break
+		}
+	}
+
+	fmt.Printf("Hi %s\n", text)
 
 }
 
