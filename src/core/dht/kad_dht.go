@@ -3,8 +3,10 @@ package dht
 import (
 	"context"
 
+	record "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/record/account"
 	"github.com/libp2p/go-libp2p-core/routing"
 	kad "github.com/libp2p/go-libp2p-kad-dht"
+	recordlibp2p "github.com/libp2p/go-libp2p-record"
 	"github.com/libp2p/go-libp2p/core/host"
 )
 
@@ -15,6 +17,8 @@ type KademliaDHT struct {
 
 func NewKademliaDHT(host host.Host, ctx context.Context) (*KademliaDHT, error) {
 	ipfsDHT, err := kad.New(ctx, host)
+
+	ipfsDHT.Validator.(recordlibp2p.NamespacedValidator)["account"] = record.AccountNSValidator{}
 
 	if err != nil {
 		return nil, err

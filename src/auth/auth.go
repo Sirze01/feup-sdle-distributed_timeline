@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht"
+	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/record/account"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -12,7 +13,7 @@ var ErrUsernameDoesntExist = errors.New("login: username doesn't exist")
 var ErrIncorrectPassword = errors.New("login: incorrect password")
 
 func Login(dht dht.DHT, username string, password string) error {
-	usernameExists, err := dht.KeyExists(username)
+	usernameExists, err := dht.KeyExists(account.AccountNS + username)
 
 	if err != nil {
 		return err
@@ -22,7 +23,7 @@ func Login(dht dht.DHT, username string, password string) error {
 		return ErrUsernameDoesntExist
 	}
 
-	hashedPassword, err := dht.GetValue(username)
+	hashedPassword, err := dht.GetValue(account.AccountNS + username)
 
 	if err != nil {
 		return err
@@ -40,7 +41,7 @@ func Login(dht dht.DHT, username string, password string) error {
 }
 
 func Register(dht dht.DHT, username string, password string) error {
-	usernameAlreadyExists, err := dht.KeyExists(username)
+	usernameAlreadyExists, err := dht.KeyExists(account.AccountNS + username)
 
 	if err != nil {
 		return err
@@ -52,7 +53,7 @@ func Register(dht dht.DHT, username string, password string) error {
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 
-	_, err = dht.PutValue(username, hashedPassword)
+	_, err = dht.PutValue(account.AccountNS+username, hashedPassword)
 
 	if err != nil {
 		return err
