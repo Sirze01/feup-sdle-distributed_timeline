@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p"
-	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/multiformats/go-multiaddr"
 
+	dht "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht"
 	log "github.com/ipfs/go-log/v2"
 )
 
@@ -88,7 +88,8 @@ func bootstrapNodeInit(idFilePath, idsListFilePath string, port int) {
 		logger.Warn("Error saving node ID to list: ", err)
 	}
 
-	_, err = dht.New(ctx, host)
+	_, err = dht.NewKademliaDHT(host, ctx)
+
 	if err != nil {
 		panic(err)
 	}
