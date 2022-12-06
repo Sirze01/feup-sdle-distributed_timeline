@@ -21,11 +21,11 @@ func BootstrapNodeInit(idFilePath, bootstrapPeerIdsFilePath string, port int) {
 	// Create the host
 	host := peer.CreateHost(ctx, idFilePath, port)
 
-	var _ = peer.InitDHT(ctx, host, bootstrapPeerIdsFilePath)
+	var dht = peer.InitDHT("bootstrap", ctx, host, bootstrapPeerIdsFilePath)
 
 	saveNodeId(bootstrapPeerIdsFilePath, host.Addrs(), host.ID().String())
 
-	//go peer.DiscoverPeers(ctx, host, dht)
+	go peer.DiscoverPeers(ctx, host, dht, "rettiwt")
 
 	select {}
 }

@@ -9,7 +9,7 @@ import (
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 
-	corePeer "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/peer"
+	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/peer"
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/timeline"
 )
 
@@ -20,11 +20,11 @@ func NodeInit(idFilePath, bootstrapPeerIdsFilePath string, register bool, userna
 	defer cancel()
 
 	// Create the host
-	host := corePeer.CreateHost(ctx, idFilePath, port)
+	host := peer.CreateHost(ctx, idFilePath, port)
 
-	var _ = corePeer.InitDHT(ctx, host, bootstrapPeerIdsFilePath)
+	var dht = peer.InitDHT("rettiwt", ctx, host, bootstrapPeerIdsFilePath)
 
-	//go peer.DiscoverPeers(ctx, host, dht)
+	go peer.DiscoverPeers(ctx, host, dht, "rettiwt")
 
 	fmt.Println("Connected to bootstrap nodes")
 
