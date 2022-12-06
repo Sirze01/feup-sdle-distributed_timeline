@@ -137,7 +137,8 @@ func (cr *UserTimeLine) ListPeers() []peer.ID {
 // readLoop pulls messages from the pubsub topic and pushes them onto the Messages channel.
 func (cr *UserTimeLine) readLoop(c chan struct{}) {
 	defer close(c)
-	for {
+	ticker := time.NewTicker(2 * time.Second)
+	for range ticker.C {
 
 		msg, err := cr.sub.Next(cr.ctx)
 		if err != nil {
