@@ -14,8 +14,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
-	"github.com/libp2p/go-libp2p/p2p/discovery/util"
 	"github.com/multiformats/go-multiaddr"
 
 	coreDHT "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht"
@@ -55,7 +53,7 @@ func CreateHost(ctx context.Context, idFilePath string, port int) host.Host {
 	return host
 }
 
-func InitDHT(ctx context.Context, host host.Host, bootstrapPeerIdsFilePath string) *coreDHT.KademliaDHT {
+func InitDHT(mode string, ctx context.Context, host host.Host, bootstrapPeerIdsFilePath string) *coreDHT.KademliaDHT {
 	bootstrapPeerIds, err := getBootstrapNodesList(bootstrapPeerIdsFilePath)
 	if err != nil {
 		creationLogger.Error("Could not open node multiaddrs list", err)
@@ -72,11 +70,23 @@ func InitDHT(ctx context.Context, host host.Host, bootstrapPeerIdsFilePath strin
 		bootstrapPeers = append(bootstrapPeers, *peerinfo)
 	}
 
+	var options []dht.Option = []dht.Option{dht.BootstrapPeers(bootstrapPeers...)}
+
+	// if no bootstrap peers give this peer act as a bootstraping node
+	// other peers can use this peers ipfs address for peer discovery via dht
+	if mode == "bootstrap" {
+		options = append(options, dht.Mode(dht.ModeServer))
+	}
+
+	if len(bootstrapPeers) == 0 && mode != "bootstrap" {
+		creationLogger.Panic("No bootstrap peers given to the ")
+	}
+
 	// Start a DHT, for use in peer discovery. We can't just make a new DHT
 	// client because we want each peer to maintain its own local copy of the
 	// DHT, so that the bootstrapping node of the DHT can go down without
 	// inhibiting future peer discovery.
-	rettiwtDHT, err := coreDHT.NewKademliaDHT(host, ctx, dht.BootstrapPeers(bootstrapPeers...))
+	rettiwtDHT, err := coreDHT.NewKademliaDHT(host, ctx, options...)
 	if err != nil {
 		creationLogger.Panic(err)
 	}
@@ -115,31 +125,4 @@ func getBootstrapNodesList(bootstrapPeerIdsFilePath string) ([]string, error) {
 		return nil, err
 	}
 	return bootstrapNodes, nil
-}
-
-func DiscoverPeers(ctx context.Context, h host.Host, dht *coreDHT.KademliaDHT) {
-	routingDiscovery := routing.NewRoutingDiscovery(dht.IpfsDHT)
-	util.Advertise(ctx, routingDiscovery, "rettiwt")
-
-	// Look for others who have announced and attempt to connect to them
-	anyConnected := false
-	for !anyConnected {
-		peerChan, err := routingDiscovery.FindPeers(ctx, "rettiwt")
-		if err != nil {
-			panic(err)
-		}
-		for peer := range peerChan {
-			if peer.ID == h.ID() {
-				continue // No self connection
-			}
-			err := h.Connect(ctx, peer)
-			if err != nil {
-				creationLogger.Error("Failed connecting to ", peer.ID.Pretty(), ", error:", err)
-			} else {
-				creationLogger.Info("Connected to:", peer.ID.Pretty())
-				anyConnected = true
-			}
-		}
-	}
-	fmt.Println("Peer discovery complete")
 }
