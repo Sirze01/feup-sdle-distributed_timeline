@@ -137,8 +137,7 @@ func (cr *UserTimeLine) ListPeers() []peer.ID {
 // readLoop pulls messages from the pubsub topic and pushes them onto the Messages channel.
 func (cr *UserTimeLine) readLoop(c chan struct{}) {
 	defer close(c)
-	ticker := time.NewTicker(2 * time.Second)
-	for range ticker.C {
+	for {
 
 		msg, err := cr.sub.Next(cr.ctx)
 		if err != nil {
@@ -156,6 +155,7 @@ func (cr *UserTimeLine) readLoop(c chan struct{}) {
 		}
 		// send valid messages onto the Messages channel
 		cr.Messages <- cm
+
 	}
 }
 
@@ -171,22 +171,35 @@ func ChanToSlice(ch interface{}) interface{} {
 	}
 }
 
+func updateUserTimeline(userTimeline *UserTimeLine, wg *sync.WaitGroup) {
+	c := make(chan struct{})
+	go userTimeline.readLoop(c)
+	select {
+	case <-c:
+		fmt.Println("Finished readloop (impossible)")
+	case <-time.After(1 * time.Second):
+		fmt.Println("Finished readloop (timeout)")
+	}
+	wg.Done()
+}
+
 func UpdateTimeline() {
 	allMessages := []Message{}
 
 	fmt.Println("Updating timeline")
-	c := make(chan struct{})
 	wg := sync.WaitGroup{}
 	for _, timeline := range TimeLines {
 		wg.Add(1)
-		go timeline.readLoop(c)
+		go updateUserTimeline(timeline, &wg)
 	}
 	wg.Wait()
 
 	fmt.Println("All timelines are updated")
 	for _, timeline := range TimeLines {
 		timeline_msgs := ChanToSlice(timeline.Messages).([]Message)
+		fmt.Println("Timeline messages are collected")
 		allMessages = append(allMessages, timeline_msgs...)
+		fmt.Println("Timeline messages are appended")
 	}
 
 	fmt.Println("All messages are collected")
