@@ -3,20 +3,20 @@ package dht
 import (
 	"context"
 
-	record "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/record/account"
-	"github.com/libp2p/go-libp2p-core/routing"
+	record "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/account"
 	kad "github.com/libp2p/go-libp2p-kad-dht"
 	recordlibp2p "github.com/libp2p/go-libp2p-record"
 	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/routing"
 )
 
 type KademliaDHT struct {
-	ipfsDHT *kad.IpfsDHT
+	IpfsDHT *kad.IpfsDHT
 	ctx     context.Context
 }
 
-func NewKademliaDHT(host host.Host, ctx context.Context) (*KademliaDHT, error) {
-	ipfsDHT, err := kad.New(ctx, host)
+func NewKademliaDHT(host host.Host, ctx context.Context, options ...kad.Option) (*KademliaDHT, error) {
+	ipfsDHT, err := kad.New(ctx, host, options...)
 
 	ipfsDHT.Validator.(recordlibp2p.NamespacedValidator)["account"] = record.AccountNSValidator{}
 
@@ -28,7 +28,7 @@ func NewKademliaDHT(host host.Host, ctx context.Context) (*KademliaDHT, error) {
 }
 
 func (kadDHT KademliaDHT) KeyExists(key string) (bool, error) {
-	_, err := kadDHT.ipfsDHT.GetValue(kadDHT.ctx, key)
+	_, err := kadDHT.IpfsDHT.GetValue(kadDHT.ctx, key)
 
 	if err == routing.ErrNotFound {
 		return false, nil
@@ -40,7 +40,7 @@ func (kadDHT KademliaDHT) KeyExists(key string) (bool, error) {
 }
 
 func (kadDHT KademliaDHT) GetValue(key string) ([]byte, error) {
-	val, err := kadDHT.ipfsDHT.GetValue(kadDHT.ctx, key)
+	val, err := kadDHT.IpfsDHT.GetValue(kadDHT.ctx, key)
 
 	if err == routing.ErrNotFound {
 		return nil, nil
@@ -58,7 +58,7 @@ func (kadDHT KademliaDHT) PutValue(key string, value []byte) ([]byte, error) {
 		return oldVal, err
 	}
 
-	err = kadDHT.ipfsDHT.PutValue(kadDHT.ctx, key, value)
+	err = kadDHT.IpfsDHT.PutValue(kadDHT.ctx, key, value)
 
 	return oldVal, err
 }

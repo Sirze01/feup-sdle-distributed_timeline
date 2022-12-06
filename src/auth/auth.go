@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht"
-	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/record/account"
+	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/account"
 	"golang.org/x/crypto/bcrypt"
 )
 

@@ -3,63 +3,95 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+
+	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/bootstrap"
+	peer "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/rettiwt-peer"
+	log "github.com/ipfs/go-log/v2"
 )
 
 func main() {
+	// Define usage function
 	flag.Usage = func() {
-		fmt.Println("Usage: rettiwt -m (bootstrap -i idFilePath)|(peer [-r] -u username -w password) -list idsList [options]")
-		fmt.Println("Options:\n\t-p port")
+		fmt.Printf("Usage: %s -m bootstrap|(peer [-r] -u username -w password) -i identityFilePath -l bootstrapPeersListFilePath [options]", os.Args[0])
+		fmt.Println("Optional:\n\t-p port\n\t--log logLevel\n\t--usage")
+
+		flag.PrintDefaults()
 	}
 
+	// Common arguments
 	mode := flag.String("m", "peer", "bootstrap or peer")
-	idsListFilePath := flag.String("list", "", "bootstrap nodes IDs list file path")
+	identityFilePath := flag.String("i", "", "bootstrap node ID file path")
+	bootstrapPeersListFilePath := flag.String("l", "", "bootstrap nodes IDs list file path")
 
-	// For bootstrap mode only
-	idFilePath := flag.String("i", "", "bootstrap node ID file path")
-
-	// For peer mode only
+	// Arguments for peer mode only
 	register := flag.Bool("r", false, "register a new user")
 	username := flag.String("u", "", "username")
 	password := flag.String("w", "", "password")
 
-	// Common options
+	// Optional arguments
 	port := flag.Int("p", 7001, "port")
+	logLevel := flag.String("log", "", "log level")
+	usage := flag.Bool("usage", false, "show usage")
 
 	flag.Parse()
 
-	if *idsListFilePath == "" {
+	// Show usage if requested
+	if *usage {
 		flag.Usage()
+		return
+	}
+
+	// Set log level
+	switch *logLevel {
+	case "debug":
+		log.SetAllLoggers(log.LevelDebug)
+	case "error":
+		log.SetAllLoggers(log.LevelError)
+	case "fatal":
+		log.SetAllLoggers(log.LevelFatal)
+	case "panic":
+		log.SetAllLoggers(log.LevelPanic)
+	case "warn":
+		log.SetAllLoggers(log.LevelWarn)
+	case "info":
+		fallthrough
+	case "":
+		fallthrough
+	default:
+		log.SetAllLoggers(log.LevelInfo)
+	}
+
+	// Check if identity file and bootstrap peers list file path  is provided
+	if *identityFilePath == "" {
+		fmt.Println("Error: missing node identity file path")
+		flag.Usage()
+		return
+	}
+
+	if *bootstrapPeersListFilePath == "" {
 		fmt.Println("Error: missing bootstrap nodes IDs list file path")
-		return
-	}
-
-	if *mode == "bootstrap" {
-		if *idsListFilePath == "" {
-			flag.Usage()
-			fmt.Println("Error: bootstrap node ID file path is required")
-			return
-		}
-
-		bootstrapNodeInit(*idFilePath, *idsListFilePath, *port)
-		fmt.Printf("bootstrap mode on port %d\n", *port)
-	} else if *mode == "peer" {
-		if *username == "" || *password == "" {
-			flag.Usage()
-			return
-		}
-		peerNodeInit(*register, *username, *password, *port)
-		fmt.Printf("peer mode on port %d, username %s, password %s\n", *port, *username, *password)
-	} else {
 		flag.Usage()
 		return
 	}
 
-	// start libp2p node peer or bootstrap node
-	// ( Save the node to a file )
-	// bootstrap to the network
-	// protocol handlers -> co routine?
-	// protocol function sending
+	// Delegate peer initialization
 
-	// Posts Get/Send
-	// Follow/Unfollow system
+	switch *mode {
+	case "bootstrap":
+		bootstrap.BootstrapNodeInit(*identityFilePath, *bootstrapPeersListFilePath, *port)
+		fmt.Printf("bootstrap mode on port %d\n", *port)
+	case "peer":
+		if *username == "" || *password == "" {
+			fmt.Println("missing username or password")
+			flag.Usage()
+			return
+		}
+		peer.NodeInit(*identityFilePath, *bootstrapPeersListFilePath, *register, *username, *password, *port)
+		fmt.Printf("peer mode on port %d, username %s, password %s\n", *port, *username, *password)
+	default:
+		fmt.Println("Error: invalid mode")
+		flag.Usage()
+		return
+	}
 }
