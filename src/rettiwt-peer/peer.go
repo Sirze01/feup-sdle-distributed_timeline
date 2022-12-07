@@ -13,8 +13,6 @@ import (
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/timeline"
 )
 
-// var logger = log.Logger("rettiwt-peer")
-
 func NodeInit(idFilePath, bootstrapPeerIdsFilePath string, register bool, username string, password string, port int) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

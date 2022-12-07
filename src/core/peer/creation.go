@@ -12,7 +12,6 @@ import (
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
-	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 
@@ -29,15 +28,6 @@ func CreateHost(ctx context.Context, idFilePath string, port int) host.Host {
 		prvKey, _ = LoadIdentity(idFilePath)
 	}
 
-	var networkNotifiee network.NotifyBundle
-	networkNotifiee.ListenF = func(net network.Network, ma multiaddr.Multiaddr) {
-		creationLogger.Info("Listening on %s, on interface %s", ma, net)
-	}
-
-	networkNotifiee.ConnectedF = func(net network.Network, con network.Conn) {
-		creationLogger.Info("Connected to %s on interface %s", con, net)
-	}
-
 	// 0.0.0.0 will listen on any interface device.
 	hostMultiAddr, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", port))
 
@@ -48,6 +38,7 @@ func CreateHost(ctx context.Context, idFilePath string, port int) host.Host {
 		creationLogger.Panic(err)
 	}
 
+	networkNotifiee := GetNotifiee()
 	host.Network().Notify(&networkNotifiee)
 
 	return host
@@ -82,10 +73,6 @@ func InitDHT(mode string, ctx context.Context, host host.Host, bootstrapPeerIdsF
 		creationLogger.Panic("No bootstrap peers given to the ")
 	}
 
-	// Start a DHT, for use in peer discovery. We can't just make a new DHT
-	// client because we want each peer to maintain its own local copy of the
-	// DHT, so that the bootstrapping node of the DHT can go down without
-	// inhibiting future peer discovery.
 	rettiwtDHT, err := coreDHT.NewKademliaDHT(host, ctx, options...)
 	if err != nil {
 		creationLogger.Panic(err)
