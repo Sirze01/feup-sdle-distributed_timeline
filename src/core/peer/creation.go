@@ -69,9 +69,9 @@ func InitDHT(mode string, ctx context.Context, host host.Host, bootstrapPeerIdsF
 
 	// if no bootstrap peers give this peer act as a bootstraping node
 	// other peers can use this peers ipfs address for peer discovery via dht
-	//if mode == "bootstrap" {
-	options = append(options, dht.Mode(dht.ModeServer))
-	//}
+	if mode == "bootstrap" {
+		options = append(options, dht.Mode(dht.ModeServer))
+	}
 
 	if len(bootstrapPeers) == 0 && mode != "bootstrap" {
 		creationLogger.Panic("No bootstrap peers given to the ")

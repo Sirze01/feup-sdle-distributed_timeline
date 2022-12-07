@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -112,15 +111,20 @@ func main() {
 
 		pubSub := peer.PubSubInit(ctx, host, *username, *identityFilePath)
 
-		appTopic, err := timeline.FollowUser(ctx, pubSub, host.ID(), "rettitw")
+		cr, err := timeline.JoinChatRoom(ctx, pubSub, host.ID(), *username, "rettiwt")
 		if err != nil {
-			panic(errors.New("Can't  join app topic: " + err.Error()))
+			panic(err)
 		}
 
-		myTopic, err := timeline.FollowUser(ctx, pubSub, host.ID(), *username)
-		if err != nil {
-			panic(errors.New("Can't  join own topic: " + err.Error()))
-		}
+		// appTopic, err := timeline.FollowUser(ctx, pubSub, host.ID(), "rettitw")
+		// if err != nil {
+		// 	panic(errors.New("Can't  join app topic: " + err.Error()))
+		// }
+
+		// myTopic, err := timeline.FollowUser(ctx, pubSub, host.ID(), *username)
+		// if err != nil {
+		// 	panic(errors.New("Can't  join own topic: " + err.Error()))
+		// }
 
 		var text string
 
@@ -133,16 +137,16 @@ func main() {
 
 			switch words[0] {
 			case "publish":
-				err := timeline.Publish(words[1], *username)
+				err := cr.Publish(words[1])
 				if err != nil {
 					fmt.Println(err)
 				}
-			case "follow":
-				timeline.FollowUser(ctx, pubSub, host.ID(), words[1])
-			case "unfollow":
-				timeline.UnfollowUser(ctx, pubSub, words[1])
-			case "update":
-				timeline.UpdateTimeline()
+			// case "follow":
+			// 	timeline.FollowUser(ctx, pubSub, host.ID(), words[1])
+			// case "unfollow":
+			// 	timeline.UnfollowUser(ctx, pubSub, words[1])
+			// case "update":
+			// 	timeline.UpdateTimeline()
 			case "help":
 				fmt.Println("publish <string> - Publishes a tweet")
 				fmt.Println("follow <string> - Follows a user")
@@ -150,15 +154,15 @@ func main() {
 				fmt.Println("update - Updates the timeline")
 			default:
 				fmt.Println("Invalid command")
-				var connpeers, apppeers string
-				for _, peer := range myTopic.ListPeers() {
-					connpeers += peer.String() + " "
-				}
-				fmt.Println(connpeers)
-				for _, peer := range appTopic.ListPeers() {
-					apppeers += peer.String() + " "
-				}
-				fmt.Println(apppeers)
+				// var connpeers, apppeers string
+				// for _, peer := range myTopic.ListPeers() {
+				// 	connpeers += peer.String() + " "
+				// }
+				// fmt.Println(connpeers)
+				// for _, peer := range appTopic.ListPeers() {
+				// 	apppeers += peer.String() + " "
+				// }
+				// fmt.Println(apppeers)
 			}
 		}
 
