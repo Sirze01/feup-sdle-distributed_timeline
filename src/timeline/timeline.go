@@ -63,7 +63,7 @@ func FollowUser(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, userName
 	}
 
 	// join the pubsub topic
-	topic, err := ps.Join(userName)
+	topic, err := ps.Join(topicName(userName))
 	if err != nil {
 		return nil, err
 	}
@@ -219,6 +219,6 @@ func UpdateTimeline() {
 
 }
 
-func topicName(roomName string) string {
-	return "chat-room:" + roomName
+func topicName(username string) string {
+	return "username:" + username
 }
