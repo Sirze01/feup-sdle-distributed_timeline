@@ -1,13 +1,19 @@
 package main
 
 import (
+	"bufio"
+	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"strings"
+
+	log "github.com/ipfs/go-log/v2"
 
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/bootstrap"
 	peer "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/rettiwt-peer"
-	log "github.com/ipfs/go-log/v2"
+	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/timeline"
 )
 
 func main() {
@@ -87,8 +93,75 @@ func main() {
 			flag.Usage()
 			return
 		}
-		peer.NodeInit(*identityFilePath, *bootstrapPeersListFilePath, *register, *username, *password, *port)
-		fmt.Printf("peer mode on port %d, username %s, password %s\n", *port, *username, *password)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		host, dht := peer.NodeInit(ctx, *identityFilePath, *bootstrapPeersListFilePath, *port)
+
+		err := peer.RegisterUser(*register, dht, *username, *password)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		err = peer.LoginUser(dht, *username, *password)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		pubSub := peer.PubSubInit(ctx, host, *username, *identityFilePath)
+
+		appTopic, err := timeline.FollowUser(ctx, pubSub, host.ID(), "rettitw")
+		if err != nil {
+			panic(errors.New("Can't  join app topic: " + err.Error()))
+		}
+
+		myTopic, err := timeline.FollowUser(ctx, pubSub, host.ID(), *username)
+		if err != nil {
+			panic(errors.New("Can't  join own topic: " + err.Error()))
+		}
+
+		var text string
+
+		reader := bufio.NewReader(os.Stdin)
+		for {
+			fmt.Print("Please enter command (help | publish <string> | follow <string> | unfollow <string> | update) : ")
+			text, _ = reader.ReadString('\n')
+			text = strings.Replace(text, "\n", "", -1)
+			words := strings.Fields(text)
+
+			switch words[0] {
+			case "publish":
+				err := timeline.Publish(words[1], *username)
+				if err != nil {
+					fmt.Println(err)
+				}
+			case "follow":
+				timeline.FollowUser(ctx, pubSub, host.ID(), words[1])
+			case "unfollow":
+				timeline.UnfollowUser(ctx, pubSub, words[1])
+			case "update":
+				timeline.UpdateTimeline()
+			case "help":
+				fmt.Println("publish <string> - Publishes a tweet")
+				fmt.Println("follow <string> - Follows a user")
+				fmt.Println("unfollow <string> - Unfollows a user")
+				fmt.Println("update - Updates the timeline")
+			default:
+				fmt.Println("Invalid command")
+				var connpeers, apppeers string
+				for _, peer := range myTopic.ListPeers() {
+					connpeers += peer.String() + " "
+				}
+				fmt.Println(connpeers)
+				for _, peer := range appTopic.ListPeers() {
+					apppeers += peer.String() + " "
+				}
+				fmt.Println(apppeers)
+			}
+		}
+
 	default:
 		fmt.Println("Error: invalid mode")
 		flag.Usage()

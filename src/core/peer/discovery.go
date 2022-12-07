@@ -27,7 +27,7 @@ func DiscoverPeers(ctx context.Context, h host.Host, dht *coreDHT.KademliaDHT, a
 
 			peers, err := discovery.FindPeers(ctx, routingDiscovery, announceString)
 			if err != nil {
-				creationLogger.Fatal(err)
+				creationLogger.Panic(err)
 			}
 
 			for _, p := range peers {

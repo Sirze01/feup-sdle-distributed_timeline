@@ -40,7 +40,7 @@ func Login(dht dht.DHT, username string, password string) error {
 	return nil
 }
 
-func Register(dht dht.DHT, username string, password string) error {
+func Register(dht dht.DHT, username, password string) error {
 	usernameAlreadyExists, err := dht.KeyExists(account.AccountNS + username)
 
 	if err != nil {

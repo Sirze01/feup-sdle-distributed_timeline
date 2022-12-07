@@ -8,12 +8,15 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/libp2p/go-libp2p/core/peer"
+	log "github.com/ipfs/go-log/v2"
+	"github.com/libp2p/go-libp2p-core/peer"
 
 	"time"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 )
+
+var timelineLogger = log.Logger("rettiwt-timeline")
 
 // ChatRoomBufSize is the number of incoming messages to buffer for each topic.
 const TimeLineBufSize = 128
