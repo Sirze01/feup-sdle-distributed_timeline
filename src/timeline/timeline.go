@@ -94,6 +94,28 @@ func (cr *ChatRoom) ListPeers() []peer.ID {
 	return cr.ps.ListPeers(cr.roomName)
 }
 
+func FollowUser(timelines []*ChatRoom, ps *pubsub.PubSub, ctx context.Context, selfID peer.ID, nickname string, roomName string) []*ChatRoom {
+	timeline, err := JoinChatRoom(ctx, ps, selfID, nickname, roomName)
+	if err != nil {
+		fmt.Println("Error joining chat room: ", err)
+		return timelines
+	}
+	timelines = append(timelines, timeline)
+	return timelines
+}
+
+func UnfollowUser(timelines []*ChatRoom, roomName string) []*ChatRoom {
+	var newTimelines []*ChatRoom
+	for _, timeline := range timelines {
+		if timeline.roomName != roomName {
+			newTimelines = append(newTimelines, timeline)
+		} else {
+			timeline.sub.Cancel()
+		}
+	}
+	return newTimelines
+}
+
 // readLoop pulls messages from the pubsub topic and pushes them onto the Messages channel.
 
 func (cr *ChatRoom) readLoop(c chan struct{}) {
@@ -102,7 +124,6 @@ func (cr *ChatRoom) readLoop(c chan struct{}) {
 
 		msg, err := cr.sub.Next(cr.ctx)
 		if err != nil {
-			fmt.Println("Error reading message: ", err)
 			return
 		}
 		// only forward messages delivered by others

@@ -151,13 +151,9 @@ func main() {
 					fmt.Println(err)
 				}
 			case "follow":
-				otherTimeline, err := timeline.JoinChatRoom(ctx, pubSub, host.ID(), *username, words[1])
-				if err != nil {
-					panic(err)
-				}
-				timelines = append(timelines, otherTimeline)
-			// case "unfollow":
-			// 	timeline.UnfollowUser(ctx, pubSub, words[1])
+				timelines = timeline.FollowUser(timelines, pubSub, ctx, host.ID(), *username, words[1])
+			case "unfollow":
+				timelines = timeline.UnfollowUser(timelines, words[1])
 			case "update":
 				timeline.UpdateTimeline(timelines)
 			case "help":
