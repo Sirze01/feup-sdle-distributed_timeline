@@ -40,7 +40,7 @@ type ChatMessage struct {
 // a ChatRoom on success.
 func JoinChatRoom(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, nickname string, roomName string) (*ChatRoom, error) {
 	// join the pubsub topic
-	topic, err := ps.Join(topicName(roomName))
+	topic, err := ps.Join(roomName)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (cr *ChatRoom) Publish(message string) error {
 }
 
 func (cr *ChatRoom) ListPeers() []peer.ID {
-	return cr.ps.ListPeers(topicName(cr.roomName))
+	return cr.ps.ListPeers(cr.roomName)
 }
 
 // readLoop pulls messages from the pubsub topic and pushes them onto the Messages channel.
@@ -104,10 +104,16 @@ func (cr *ChatRoom) readLoop() {
 		}
 		// send valid messages onto the Messages channel
 		cr.Messages <- cm
-		println("received message from", cm.SenderNick)
+		println("\n\nreceived message from", cm.SenderNick)
 	}
 }
 
-func topicName(roomName string) string {
-	return "chat-room:" + roomName
-}
+// func Unfollow(timelines []*ChatRoom, roomName string) []*ChatRoom {
+// 	for i, timeline := range timelines {
+// 		if timeline.roomName == roomName {
+// 			timelines = append(timelines[:i], timelines[i+1:]...)
+// 			break
+// 		}
+// 	}
+// 	return timelines
+// }

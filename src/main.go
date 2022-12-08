@@ -109,12 +109,21 @@ func main() {
 			return
 		}
 
+		var timelines []*timeline.ChatRoom
+
 		pubSub := peer.PubSubInit(ctx, host, *username, *identityFilePath)
 
-		cr, err := timeline.JoinChatRoom(ctx, pubSub, host.ID(), *username, "rettiwt")
+		generalTimeline, err := timeline.JoinChatRoom(ctx, pubSub, host.ID(), *username, "rettiwt")
 		if err != nil {
 			panic(err)
 		}
+		ownTimeline, err := timeline.JoinChatRoom(ctx, pubSub, host.ID(), *username, *username)
+		if err != nil {
+			panic(err)
+		}
+
+		timelines = append(timelines, generalTimeline)
+		timelines = append(timelines, ownTimeline)
 
 		// appTopic, err := timeline.FollowUser(ctx, pubSub, host.ID(), "rettitw")
 		// if err != nil {
@@ -137,12 +146,16 @@ func main() {
 
 			switch words[0] {
 			case "publish":
-				err := cr.Publish(words[1])
+				err := ownTimeline.Publish(words[1])
 				if err != nil {
 					fmt.Println(err)
 				}
-			// case "follow":
-			// 	timeline.FollowUser(ctx, pubSub, host.ID(), words[1])
+			case "follow":
+				otherTimeline, err := timeline.JoinChatRoom(ctx, pubSub, host.ID(), *username, words[1])
+				if err != nil {
+					panic(err)
+				}
+				timelines = append(timelines, otherTimeline)
 			// case "unfollow":
 			// 	timeline.UnfollowUser(ctx, pubSub, words[1])
 			// case "update":
