@@ -3,6 +3,10 @@ package timeline
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"sort"
+	"sync"
+	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
 
@@ -17,7 +21,7 @@ const ChatRoomBufSize = 128
 // messages are pushed to the Messages channel.
 type ChatRoom struct {
 	// Messages is a channel of messages received from other peers in the chat room
-	Messages chan *ChatMessage
+	Messages []*ChatMessage
 
 	ctx   context.Context
 	ps    *pubsub.PubSub
@@ -34,6 +38,7 @@ type ChatMessage struct {
 	Message    string
 	SenderID   string
 	SenderNick string
+	TimeStamp  time.Time
 }
 
 // JoinChatRoom tries to subscribe to the PubSub topic for the room name, returning
@@ -59,11 +64,11 @@ func JoinChatRoom(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, nickna
 		self:     selfID,
 		nick:     nickname,
 		roomName: roomName,
-		Messages: make(chan *ChatMessage, ChatRoomBufSize),
+		Messages: []*ChatMessage{},
 	}
 
 	// start reading messages from the subscription in a loop
-	go cr.readLoop()
+
 	return cr, nil
 }
 
@@ -73,11 +78,15 @@ func (cr *ChatRoom) Publish(message string) error {
 		Message:    message,
 		SenderID:   cr.self.Pretty(),
 		SenderNick: cr.nick,
+		TimeStamp:  time.Now(),
 	}
 	msgBytes, err := json.Marshal(m)
 	if err != nil {
 		return err
 	}
+
+	cr.Messages = append(cr.Messages, &m)
+
 	return cr.topic.Publish(cr.ctx, msgBytes)
 }
 
@@ -86,11 +95,15 @@ func (cr *ChatRoom) ListPeers() []peer.ID {
 }
 
 // readLoop pulls messages from the pubsub topic and pushes them onto the Messages channel.
-func (cr *ChatRoom) readLoop() {
+
+func (cr *ChatRoom) readLoop(c chan struct{}) {
+	defer close(c)
 	for {
+
 		msg, err := cr.sub.Next(cr.ctx)
+		println("read message!!!")
 		if err != nil {
-			close(cr.Messages)
+			fmt.Println("Error reading message: ", err)
 			return
 		}
 		// only forward messages delivered by others
@@ -103,17 +116,52 @@ func (cr *ChatRoom) readLoop() {
 			continue
 		}
 		// send valid messages onto the Messages channel
-		cr.Messages <- cm
-		println("\n\nreceived message from", cm.SenderNick)
+
+		cr.Messages = append(cr.Messages, cm)
+
 	}
 }
 
-// func Unfollow(timelines []*ChatRoom, roomName string) []*ChatRoom {
-// 	for i, timeline := range timelines {
-// 		if timeline.roomName == roomName {
-// 			timelines = append(timelines[:i], timelines[i+1:]...)
-// 			break
-// 		}
-// 	}
-// 	return timelines
-// }
+func updateUserTimeline(userTimeline *ChatRoom, wg *sync.WaitGroup) {
+	c := make(chan struct{})
+	go userTimeline.readLoop(c)
+	select {
+	case <-c:
+		fmt.Println("Finished readloop (impossible)")
+	case <-time.After(1 * time.Second):
+		fmt.Println("Finished readloop (timeout)")
+	}
+	wg.Done()
+}
+
+func UpdateTimeline(timelines []*ChatRoom) {
+	allMessages := []*ChatMessage{}
+
+	fmt.Println("Updating timeline")
+	wg := sync.WaitGroup{}
+	for _, timeline := range timelines {
+		wg.Add(1)
+		go updateUserTimeline(timeline, &wg)
+	}
+	wg.Wait()
+
+	fmt.Println("All timelines are updated")
+	for _, timeline := range timelines {
+		allMessages = append(allMessages, timeline.Messages...)
+		fmt.Println("Timeline messages are appended")
+	}
+
+	fmt.Println("All messages are collected")
+
+	sort.Slice(allMessages, func(i, j int) bool {
+		return allMessages[i].TimeStamp.After(allMessages[j].TimeStamp)
+	})
+
+	fmt.Println("All messages are sorted")
+
+	for _, message := range allMessages {
+		fmt.Println("\n\nFrom: ", message.SenderNick, "\nMessage: ", message.Message, "\nTime: ", message.TimeStamp.Format("2006-01-02 15:04:05"))
+
+	}
+
+}

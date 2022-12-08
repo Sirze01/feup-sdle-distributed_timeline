@@ -158,8 +158,8 @@ func main() {
 				timelines = append(timelines, otherTimeline)
 			// case "unfollow":
 			// 	timeline.UnfollowUser(ctx, pubSub, words[1])
-			// case "update":
-			// 	timeline.UpdateTimeline()
+			case "update":
+				timeline.UpdateTimeline(timelines)
 			case "help":
 				fmt.Println("publish <string> - Publishes a tweet")
 				fmt.Println("follow <string> - Follows a user")
