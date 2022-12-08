@@ -139,7 +139,7 @@ func main() {
 
 		reader := bufio.NewReader(os.Stdin)
 		for {
-			fmt.Print("Please enter command (help | publish <string> | follow <string> | unfollow <string> | update) : ")
+			fmt.Print("Please enter command (help | publish <string> | followers <string> | follow <string> | unfollow <string> | update) : ")
 			text, _ = reader.ReadString('\n')
 			text = strings.Replace(text, "\n", "", -1)
 			words := strings.Fields(text)
@@ -150,6 +150,8 @@ func main() {
 				if err != nil {
 					fmt.Println(err)
 				}
+			case "followers":
+				timeline.GetFollowers(timelines, words[1])
 			case "follow":
 				timelines = timeline.FollowUser(timelines, pubSub, ctx, host.ID(), *username, words[1])
 			case "unfollow":

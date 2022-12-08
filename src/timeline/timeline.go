@@ -94,6 +94,17 @@ func (cr *ChatRoom) ListPeers() []peer.ID {
 	return cr.ps.ListPeers(cr.roomName)
 }
 
+func GetFollowers(timelines []*ChatRoom, roomname string) ([]peer.ID, error) {
+	for _, timeline := range timelines {
+		if timeline.roomName == roomname {
+			fmt.Println(timeline.ListPeers())
+			return timeline.ListPeers(), nil
+		}
+	}
+	return nil, fmt.Errorf("no such user")
+
+}
+
 func FollowUser(timelines []*ChatRoom, ps *pubsub.PubSub, ctx context.Context, selfID peer.ID, nickname string, roomName string) []*ChatRoom {
 	timeline, err := JoinChatRoom(ctx, ps, selfID, nickname, roomName)
 	if err != nil {
