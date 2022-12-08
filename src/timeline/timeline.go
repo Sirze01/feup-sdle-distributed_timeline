@@ -101,7 +101,6 @@ func (cr *ChatRoom) readLoop(c chan struct{}) {
 	for {
 
 		msg, err := cr.sub.Next(cr.ctx)
-		println("read message!!!")
 		if err != nil {
 			fmt.Println("Error reading message: ", err)
 			return
@@ -127,9 +126,9 @@ func updateUserTimeline(userTimeline *ChatRoom, wg *sync.WaitGroup) {
 	go userTimeline.readLoop(c)
 	select {
 	case <-c:
-		fmt.Println("Finished readloop (impossible)")
+
 	case <-time.After(1 * time.Second):
-		fmt.Println("Finished readloop (timeout)")
+
 	}
 	wg.Done()
 }
@@ -137,7 +136,7 @@ func updateUserTimeline(userTimeline *ChatRoom, wg *sync.WaitGroup) {
 func UpdateTimeline(timelines []*ChatRoom) {
 	allMessages := []*ChatMessage{}
 
-	fmt.Println("Updating timeline")
+	fmt.Println("Updating timeline...")
 	wg := sync.WaitGroup{}
 	for _, timeline := range timelines {
 		wg.Add(1)
@@ -145,19 +144,13 @@ func UpdateTimeline(timelines []*ChatRoom) {
 	}
 	wg.Wait()
 
-	fmt.Println("All timelines are updated")
 	for _, timeline := range timelines {
 		allMessages = append(allMessages, timeline.Messages...)
-		fmt.Println("Timeline messages are appended")
 	}
-
-	fmt.Println("All messages are collected")
 
 	sort.Slice(allMessages, func(i, j int) bool {
 		return allMessages[i].TimeStamp.After(allMessages[j].TimeStamp)
 	})
-
-	fmt.Println("All messages are sorted")
 
 	for _, message := range allMessages {
 		fmt.Println("\n\nFrom: ", message.SenderNick, "\nMessage: ", message.Message, "\nTime: ", message.TimeStamp.Format("2006-01-02 15:04:05"))
