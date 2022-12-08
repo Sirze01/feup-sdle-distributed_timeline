@@ -8,6 +8,9 @@ import (
 	"sync"
 	"time"
 
+	log "github.com/ipfs/go-log/v2"
+
+	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht"
 	"github.com/libp2p/go-libp2p/core/peer"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -15,6 +18,8 @@ import (
 
 // ChatRoomBufSize is the number of incoming messages to buffer for each topic.
 const ChatRoomBufSize = 128
+
+var timelineLogger = log.Logger("rettiwt-timeline")
 
 // ChatRoom represents a subscription to a single PubSub topic. Messages
 // can be published to the topic with ChatRoom.Publish, and received
@@ -94,14 +99,24 @@ func (cr *ChatRoom) ListPeers() []peer.ID {
 	return cr.ps.ListPeers(cr.roomName)
 }
 
-func GetFollowers(timelines []*ChatRoom, roomname string) ([]peer.ID, error) {
+func GetFollowers(timelines []*ChatRoom, dht *dht.KademliaDHT, roomname string) []string {
+	var users = []string{}
 	for _, timeline := range timelines {
 		if timeline.roomName == roomname {
-			fmt.Println(timeline.ListPeers())
-			return timeline.ListPeers(), nil
+			for _, peer := range timeline.ListPeers() {
+				fmt.Println("Peer: ", peer.String())
+				username, err := dht.GetValue(peer.String())
+				if err != nil {
+					users = append(users, string(username))
+				} else {
+					timelineLogger.Error(err)
+				}
+			}
 		}
 	}
-	return nil, fmt.Errorf("no such user")
+
+	fmt.Println("Users: ", users)
+	return users
 
 }
 

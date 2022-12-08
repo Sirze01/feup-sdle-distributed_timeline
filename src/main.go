@@ -97,6 +97,8 @@ func main() {
 
 		host, dht := peer.NodeInit(ctx, *identityFilePath, *bootstrapPeersListFilePath, *port)
 
+		dht.PutValue(host.ID().String(), []byte(*username))
+
 		err := peer.RegisterUser(*register, dht, *username, *password)
 		if err != nil {
 			fmt.Println(err)
@@ -107,6 +109,12 @@ func main() {
 		if err != nil {
 			fmt.Println(err)
 			return
+		}
+
+		ret, err := dht.PutValue(host.ID().String(), []byte(*username))
+		fmt.Println("ret: ", string(ret))
+		if err != nil {
+			fmt.Println(err)
 		}
 
 		var timelines []*timeline.ChatRoom
@@ -151,7 +159,7 @@ func main() {
 					fmt.Println(err)
 				}
 			case "followers":
-				timeline.GetFollowers(timelines, words[1])
+				timeline.GetFollowers(timelines, dht, words[1])
 			case "follow":
 				timelines = timeline.FollowUser(timelines, pubSub, ctx, host.ID(), *username, words[1])
 			case "unfollow":

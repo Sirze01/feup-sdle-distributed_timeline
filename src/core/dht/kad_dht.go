@@ -2,6 +2,7 @@ package dht
 
 import (
 	"context"
+	"fmt"
 
 	record "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/account"
 	kad "github.com/libp2p/go-libp2p-kad-dht"
@@ -57,6 +58,8 @@ func (kadDHT KademliaDHT) PutValue(key string, value []byte) ([]byte, error) {
 	if err != nil {
 		return oldVal, err
 	}
+
+	fmt.Println("Putting value in DHT")
 
 	err = kadDHT.IpfsDHT.PutValue(kadDHT.ctx, key, value)
 
