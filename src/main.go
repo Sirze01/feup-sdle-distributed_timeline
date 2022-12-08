@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	recordpeer "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/rettiwt-peer"
 	log "github.com/ipfs/go-log/v2"
 
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/bootstrap"
@@ -97,7 +98,13 @@ func main() {
 
 		host, dht := peer.NodeInit(ctx, *identityFilePath, *bootstrapPeersListFilePath, *port)
 
-		dht.PutValue(host.ID().String(), []byte(*username))
+		record := recordpeer.RettiwtPeerRecord{
+			Username: *username,
+		}
+
+		marshaledRecord := recordpeer.MarshalJson(&record)
+
+		dht.PutValue("/"+recordpeer.RettiwtPeerNS+"/"+host.ID().String(), marshaledRecord)
 
 		err := peer.RegisterUser(*register, dht, *username, *password)
 		if err != nil {
@@ -110,8 +117,9 @@ func main() {
 			fmt.Println(err)
 			return
 		}
+		marshaledRecord = recordpeer.MarshalJson(&record)
 
-		ret, err := dht.PutValue(host.ID().String(), []byte(*username))
+		ret, err := dht.PutValue("/"+recordpeer.RettiwtPeerNS+"/"+host.ID().String(), marshaledRecord)
 		fmt.Println("ret: ", string(ret))
 		if err != nil {
 			fmt.Println(err)

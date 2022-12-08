@@ -13,7 +13,7 @@ var ErrUsernameDoesntExist = errors.New("login: username doesn't exist")
 var ErrIncorrectPassword = errors.New("login: incorrect password")
 
 func Login(dht dht.DHT, username string, password string) error {
-	usernameExists, err := dht.KeyExists(account.AccountNS + username)
+	usernameExists, err := dht.KeyExists("/" + account.AccountNS + "/" + username)
 
 	if err != nil {
 		return err
@@ -23,7 +23,7 @@ func Login(dht dht.DHT, username string, password string) error {
 		return ErrUsernameDoesntExist
 	}
 
-	hashedPassword, err := dht.GetValue(account.AccountNS + username)
+	hashedPassword, err := dht.GetValue("/" + account.AccountNS + "/" + username)
 
 	if err != nil {
 		return err
@@ -41,7 +41,7 @@ func Login(dht dht.DHT, username string, password string) error {
 }
 
 func Register(dht dht.DHT, username, password string) error {
-	usernameAlreadyExists, err := dht.KeyExists(account.AccountNS + username)
+	usernameAlreadyExists, err := dht.KeyExists("/" + account.AccountNS + "/" + username)
 
 	if err != nil {
 		return err
@@ -53,7 +53,7 @@ func Register(dht dht.DHT, username, password string) error {
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 
-	_, err = dht.PutValue(account.AccountNS+username, hashedPassword)
+	_, err = dht.PutValue("/"+account.AccountNS+"/"+username, hashedPassword)
 
 	if err != nil {
 		return err

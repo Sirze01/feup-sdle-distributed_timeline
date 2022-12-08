@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	record "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/account"
+	recordAccount "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/account"
+	recordpeer "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/rettiwt-peer"
 	kad "github.com/libp2p/go-libp2p-kad-dht"
 	recordlibp2p "github.com/libp2p/go-libp2p-record"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -19,7 +20,8 @@ type KademliaDHT struct {
 func NewKademliaDHT(host host.Host, ctx context.Context, options ...kad.Option) (*KademliaDHT, error) {
 	ipfsDHT, err := kad.New(ctx, host, options...)
 
-	ipfsDHT.Validator.(recordlibp2p.NamespacedValidator)["account"] = record.AccountNSValidator{}
+	ipfsDHT.Validator.(recordlibp2p.NamespacedValidator)[recordAccount.AccountNS] = recordAccount.AccountNSValidator{}
+	ipfsDHT.Validator.(recordlibp2p.NamespacedValidator)[recordpeer.RettiwtPeerNS] = recordpeer.RettiwtPeerNSValidator{}
 
 	if err != nil {
 		return nil, err

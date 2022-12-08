@@ -1,6 +1,6 @@
 package account
 
-var AccountNS = "/account/"
+var AccountNS = "account"
 
 type AccountNSValidator struct{}
 
