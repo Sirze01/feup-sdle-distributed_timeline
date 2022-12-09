@@ -1,0 +1,88 @@
+.App {
+  text-align: center;
+}
+.background {
+  background-color: #EBE8E5;
+}
+
+
+.btn-primary {
+  background-color: #E25E0D;
+}
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+.my-primary {
+  color: #E25E0D;
+}
+
+.my-secondary {
+  color: #EBE8E5;
+}
+
+.my-text {
+  color: #14171a;
+  font-size: 20px;
+}
+
+.pub-border{
+  border-color: #E25E0D;
+}
+
+.App-logo-flipped {
+  transform: scaleY(-1);
+  -moz-transform: scaleY(-1);
+  -webkit-transform: scaleY(-1);
+  -ms-transform: scaleY(-1);
+}
+
+.App-header {
+  background-color: #EBE8E5;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.Login-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: top;
+  font-size: calc(10px + 2vmin);
+}
+
+.Login-form {
+  min-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 1vmin);
+}
+.Publish-form {
+  min-height: 20vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 1vmin);
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
