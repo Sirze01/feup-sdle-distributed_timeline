@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/ipfs/go-log/v2"
-
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht"
+	recordpeer "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/rettiwt-peer"
+	log "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p/core/peer"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -105,7 +105,7 @@ func GetFollowers(timelines []*ChatRoom, dht *dht.KademliaDHT, roomname string) 
 		if timeline.roomName == roomname {
 			for _, peer := range timeline.ListPeers() {
 				fmt.Println("Peer: ", peer.String())
-				username, err := dht.GetValue(peer.String())
+				username, err := dht.GetValue("/" + recordpeer.RettiwtPeerNS + "/" + peer.String())
 				if err != nil {
 					users = append(users, string(username))
 				} else {
