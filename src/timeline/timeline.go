@@ -4,29 +4,30 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"sync"
 	"time"
 
-	log "github.com/ipfs/go-log/v2"
-
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht"
+	recordpeer "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/rettiwt-peer"
+	log "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p/core/peer"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 )
 
-// ChatRoomBufSize is the number of incoming messages to buffer for each topic.
-const ChatRoomBufSize = 128
+// UserTimelineBufSize is the number of incoming messages to buffer for each topic.
+const UserTimelineBufSize = 128
 
 var timelineLogger = log.Logger("rettiwt-timeline")
 
-// ChatRoom represents a subscription to a single PubSub topic. Messages
-// can be published to the topic with ChatRoom.Publish, and received
+// UserTimeline represents a subscription to a single PubSub topic. Messages
+// can be published to the topic with UserTimeline.Publish, and received
 // messages are pushed to the Messages channel.
-type ChatRoom struct {
+type UserTimeline struct {
 	// Messages is a channel of messages received from other peers in the chat room
-	Messages []*ChatMessage
+	Messages []*TimelineMessage
 
 	ctx   context.Context
 	ps    *pubsub.PubSub
@@ -39,17 +40,16 @@ type ChatRoom struct {
 	CurrMessageID int
 }
 
-// ChatMessage gets converted to/from JSON and sent in the body of pubsub messages.
-type ChatMessage struct {
+// TimelineMessage gets converted to/from JSON and sent in the body of pubsub messages.
+type TimelineMessage struct {
 	Message    string
-	SenderID   string
 	SenderNick string
 	TimeStamp  time.Time
 }
 
-// JoinChatRoom tries to subscribe to the PubSub topic for the room name, returning
-// a ChatRoom on success.
-func JoinChatRoom(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, nickname string, roomName string) (*ChatRoom, error) {
+// JoinUserTimeline tries to subscribe to the PubSub topic for the room name, returning
+// a UserTimeline on success.
+func JoinUserTimeline(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, nickname string, roomName string) (*UserTimeline, error) {
 	// join the pubsub topic
 	topic, err := ps.Join(roomName)
 	if err != nil {
@@ -62,7 +62,7 @@ func JoinChatRoom(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, nickna
 		return nil, err
 	}
 
-	cr := &ChatRoom{
+	cr := &UserTimeline{
 		ctx:           ctx,
 		ps:            ps,
 		topic:         topic,
@@ -70,7 +70,7 @@ func JoinChatRoom(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, nickna
 		self:          selfID,
 		nick:          nickname,
 		roomName:      roomName,
-		Messages:      []*ChatMessage{},
+		Messages:      []*TimelineMessage{},
 		CurrMessageID: -1,
 	}
 
@@ -80,10 +80,9 @@ func JoinChatRoom(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, nickna
 }
 
 // Publish sends a message to the pubsub topic.
-func (cr *ChatRoom) Publish(message string) error {
-	m := ChatMessage{
+func (cr *UserTimeline) Publish(message string) error {
+	m := TimelineMessage{
 		Message:    message,
-		SenderID:   cr.self.Pretty(),
 		SenderNick: cr.nick,
 		TimeStamp:  time.Now(),
 	}
@@ -97,17 +96,17 @@ func (cr *ChatRoom) Publish(message string) error {
 	return cr.topic.Publish(cr.ctx, msgBytes)
 }
 
-func (cr *ChatRoom) ListPeers() []peer.ID {
+func (cr *UserTimeline) ListPeers() []peer.ID {
 	return cr.ps.ListPeers(cr.roomName)
 }
 
-func GetFollowers(timelines []*ChatRoom, dht *dht.KademliaDHT, roomname string) []string {
+func GetFollowers(timelines []*UserTimeline, dht *dht.KademliaDHT, roomname string) []string {
 	var users = []string{}
 	for _, timeline := range timelines {
 		if timeline.roomName == roomname {
 			for _, peer := range timeline.ListPeers() {
 				fmt.Println("Peer: ", peer.String())
-				username, err := dht.GetValue(peer.String())
+				username, err := dht.GetValue("/" + recordpeer.RettiwtPeerNS + "/" + peer.String())
 				if err != nil {
 					users = append(users, string(username))
 				} else {
@@ -122,8 +121,8 @@ func GetFollowers(timelines []*ChatRoom, dht *dht.KademliaDHT, roomname string) 
 
 }
 
-func FollowUser(timelines []*ChatRoom, ps *pubsub.PubSub, ctx context.Context, selfID peer.ID, nickname string, roomName string) []*ChatRoom {
-	timeline, err := JoinChatRoom(ctx, ps, selfID, nickname, roomName)
+func FollowUser(timelines []*UserTimeline, ps *pubsub.PubSub, ctx context.Context, selfID peer.ID, nickname string, roomName string) []*UserTimeline {
+	timeline, err := JoinUserTimeline(ctx, ps, selfID, nickname, roomName)
 	if err != nil {
 		fmt.Println("Error joining chat room: ", err)
 		return timelines
@@ -132,8 +131,8 @@ func FollowUser(timelines []*ChatRoom, ps *pubsub.PubSub, ctx context.Context, s
 	return timelines
 }
 
-func UnfollowUser(timelines []*ChatRoom, roomName string) []*ChatRoom {
-	var newTimelines []*ChatRoom
+func UnfollowUser(timelines []*UserTimeline, roomName string) []*UserTimeline {
+	var newTimelines []*UserTimeline
 	for _, timeline := range timelines {
 		if timeline.roomName != roomName {
 			newTimelines = append(newTimelines, timeline)
@@ -146,7 +145,7 @@ func UnfollowUser(timelines []*ChatRoom, roomName string) []*ChatRoom {
 
 // readLoop pulls messages from the pubsub topic and pushes them onto the Messages channel.
 
-func (cr *ChatRoom) readLoop(c chan struct{}) {
+func (cr *UserTimeline) readLoop(c chan struct{}) {
 	defer close(c)
 	for {
 
@@ -158,7 +157,7 @@ func (cr *ChatRoom) readLoop(c chan struct{}) {
 		if msg.ReceivedFrom == cr.self {
 			continue
 		}
-		cm := new(ChatMessage)
+		cm := new(TimelineMessage)
 		err = json.Unmarshal(msg.Data, cm)
 		if err != nil {
 			continue
@@ -170,7 +169,7 @@ func (cr *ChatRoom) readLoop(c chan struct{}) {
 	}
 }
 
-func updateUserTimeline(userTimeline *ChatRoom, wg *sync.WaitGroup) {
+func updateUserTimeline(userTimeline *UserTimeline, wg *sync.WaitGroup) {
 	c := make(chan struct{})
 	go userTimeline.readLoop(c)
 	select {
@@ -182,8 +181,8 @@ func updateUserTimeline(userTimeline *ChatRoom, wg *sync.WaitGroup) {
 	wg.Done()
 }
 
-func UpdateTimeline(timelines []*ChatRoom) {
-	allMessages := []*ChatMessage{}
+func UpdateTimeline(timelines []*UserTimeline) {
+	allMessages := []*TimelineMessage{}
 
 	fmt.Println("Updating timeline...")
 	wg := sync.WaitGroup{}
@@ -206,4 +205,102 @@ func UpdateTimeline(timelines []*ChatRoom) {
 
 	}
 
+}
+
+func StartTimelines(username string, ps *pubsub.PubSub, ctx context.Context, selfID peer.ID) ([]*UserTimeline, *UserTimeline) {
+	var timelines []*UserTimeline
+	var ownTimeline *UserTimeline
+	var timeline_json_file []byte
+	timeline_json := make(map[string][]TimelineMessage)
+	if _, err := os.Stat("./nodes/" + username + ".timelines.json"); err != nil {
+
+		generalTimeline, err := JoinUserTimeline(ctx, ps, selfID, username, "rettiwt")
+		if err != nil {
+			panic(err)
+		}
+		ownTimeline, err := JoinUserTimeline(ctx, ps, selfID, username, username)
+		if err != nil {
+			panic(err)
+		}
+		timelines = append(timelines, ownTimeline)
+		timelines = append(timelines, generalTimeline)
+
+		return timelines, ownTimeline
+
+	}
+
+	timeline_json_file, err := os.ReadFile("./nodes/" + username + ".timelines.json")
+	if err != nil {
+		fmt.Println("Error reading timeline json: ", err)
+	}
+	err = json.Unmarshal(timeline_json_file, &timeline_json)
+	if err != nil {
+		fmt.Println("Error unmarshalling timeline json: ", err)
+	}
+
+	for user, messages := range timeline_json {
+		topic, err := ps.Join(user)
+		if err != nil {
+			fmt.Println("Error joining topic: ", err)
+			continue
+
+		}
+
+		// and subscribe to it
+		sub, err := topic.Subscribe()
+		if err != nil {
+			fmt.Println("Error subscribing topic: ", err)
+			continue
+
+		}
+
+		msgs_pointers := []*TimelineMessage{}
+		for _, msg := range messages {
+			msg_pointer := &TimelineMessage{}
+			*msg_pointer = msg
+
+			msgs_pointers = append(msgs_pointers, msg_pointer)
+		}
+
+		cr := &UserTimeline{
+			ctx:      ctx,
+			ps:       ps,
+			topic:    topic,
+			sub:      sub,
+			self:     selfID,
+			nick:     username,
+			roomName: user,
+			Messages: msgs_pointers,
+		}
+
+		if user == username {
+			ownTimeline = cr
+		}
+
+		timelines = append(timelines, cr)
+	}
+
+	return timelines, ownTimeline
+
+}
+
+func DownloadTimelines(timelines []*UserTimeline, username string) {
+	timeline_json := make(map[string][]TimelineMessage)
+
+	for _, timeline := range timelines {
+		dereferenced_msgs := []TimelineMessage{}
+		for _, msg := range timeline.Messages {
+			dereferenced_msgs = append(dereferenced_msgs, *msg)
+		}
+		timeline_json[timeline.roomName] = dereferenced_msgs
+	}
+
+	json, err := json.MarshalIndent(timeline_json, "", "    ")
+	if err != nil {
+		fmt.Println("Error marshalling timeline json: ", err)
+	}
+	err = os.WriteFile("./nodes/"+username+".timelines.json", json, 0666)
+	if err != nil {
+		fmt.Println("Error writing timeline json: ", err)
+	}
 }

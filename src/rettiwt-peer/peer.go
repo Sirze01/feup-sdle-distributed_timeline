@@ -34,7 +34,7 @@ func NodeInit(ctx context.Context, idFilePath, bootstrapPeerIdsFilePath string, 
 
 func RegisterUser(register bool, dht *dht.KademliaDHT, username, password string) error {
 	// Check if user is already registered
-	exists, err := dht.KeyExists(account.AccountNS + username)
+	exists, err := dht.KeyExists("/" + account.AccountNS + "/" + username)
 	if err != nil {
 		peerLogger.Error(err)
 		return errors.New("register: cannot check username existence: " + err.Error())
