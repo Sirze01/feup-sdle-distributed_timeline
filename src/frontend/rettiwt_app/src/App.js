@@ -5,7 +5,7 @@ import WelcomePage from './components/WelcomePage';
 import Login from './components/Authentication/Login';
 import Register from './components/Authentication/Register';
 import MainTimelinePage from './components/Timeline/MainTimelinePage';
-import Profile from './components/Timeline/Profile';
+import ProfilePage from './components/Timeline/Profile/ProfilePage';
 import useToken from './components/Authentication/useToken';
 
 
@@ -21,7 +21,7 @@ function App() {
           <Route path='/login' element={<Login setToken={setToken} />} />
           <Route path='/register' element={<Register setToken={setToken} />} />
           <Route path="/feed" element={<MainTimelinePage />} />
-          <Route path="/profile" element={<Profile />} />
+          <Route path="/profile" element={<ProfilePage />} />
 
         </Routes>
       </Router>
@@ -33,7 +33,7 @@ function App() {
         <Route path='/login' element={<Login setToken={setToken} />} />
         <Route path='/register' element={<Register setToken={setToken} />} />
         <Route path="/feed" element={<MainTimelinePage setToken={setToken}/>} />
-        <Route path="/profile" element={<Profile setToken={setToken}/>} />
+        <Route path="/profile" element={<ProfilePage setToken={setToken}/>} />
 
         </Routes>
     </Router>)

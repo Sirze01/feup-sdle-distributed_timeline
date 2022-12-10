@@ -1,11 +1,11 @@
 import React from 'react';
-import '../../App.css';
-import NavBar from '../NavBar';
-import Feed from './Feed'
+import '../../../App.css';
+import NavBar from '../../NavBar';
+import Feed from '../Feed'
 import ProfileSettings from './ProfileSettings'
 
 
-function Profile() {
+function ProfilePage() {
 
     return (
         <>
@@ -17,4 +17,4 @@ function Profile() {
     );
 }
 
-export default Profile;
+export default ProfilePage;

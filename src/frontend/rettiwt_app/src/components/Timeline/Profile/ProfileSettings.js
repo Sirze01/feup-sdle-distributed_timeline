@@ -1,5 +1,5 @@
 import React from 'react';
-import '../../App.css';
+import '../../../App.css';
 import { Button, Stack, Row, Col } from 'react-bootstrap';
 
 function ProfileSettings() {
@@ -7,14 +7,15 @@ function ProfileSettings() {
     let following = false;
     const handleFollow = () => {
         console.log("Following: username")
-        following = true;
+        following = !following;
+        document.getElementById("follow").innerHTML = following ? "Unfollow" : "Follow";
     }
 
     //verify if the user is the owner of the profile
     return (
             <Row className='mt-5 mx-5'>
                 <Col md={{ span: 7, offset: 1 }}>
-                    <h2 className='my-primary p-3'> Username<Button style={{ background: "#E25E0D", border: "#E25E0D" }} className="mx-3" onClick={handleFollow} size="medium">{following ? "Unfollow" : "Follow"}
+                    <h2 className='my-primary p-3'> Username<Button id = "follow" style={{ background: "#E25E0D", border: "#E25E0D" }} className="mx-3" onClick={handleFollow} size="medium">{following ? "Unfollow" : "Follow"}
                     </Button></h2>
                 </Col>
                 <Col className='my-auto'>

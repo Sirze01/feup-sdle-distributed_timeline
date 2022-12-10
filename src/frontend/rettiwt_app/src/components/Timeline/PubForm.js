@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import '../../App.css';
 import { Form, Row, Col,Button } from 'react-bootstrap';
+import { sendMsg } from '../../api/server_listener';
 
 function PubForm() {
 
@@ -8,7 +9,9 @@ function PubForm() {
 
 
     const handlePublish = () => {
+        if(message.length === 0) return;
         console.log("Publishing: " + message)
+        sendMsg(message);
     }
 
     return (

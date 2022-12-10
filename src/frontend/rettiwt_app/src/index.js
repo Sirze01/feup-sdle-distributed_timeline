@@ -5,8 +5,10 @@ import './App.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import {connect} from './api/server_listener';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
+connect();
 
 root.render(
   <React.StrictMode>
