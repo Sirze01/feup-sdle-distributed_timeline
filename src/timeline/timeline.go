@@ -33,9 +33,10 @@ type ChatRoom struct {
 	topic *pubsub.Topic
 	sub   *pubsub.Subscription
 
-	roomName string
-	self     peer.ID
-	nick     string
+	roomName      string
+	self          peer.ID
+	nick          string
+	CurrMessageID int
 }
 
 // ChatMessage gets converted to/from JSON and sent in the body of pubsub messages.
@@ -62,14 +63,15 @@ func JoinChatRoom(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, nickna
 	}
 
 	cr := &ChatRoom{
-		ctx:      ctx,
-		ps:       ps,
-		topic:    topic,
-		sub:      sub,
-		self:     selfID,
-		nick:     nickname,
-		roomName: roomName,
-		Messages: []*ChatMessage{},
+		ctx:           ctx,
+		ps:            ps,
+		topic:         topic,
+		sub:           sub,
+		self:          selfID,
+		nick:          nickname,
+		roomName:      roomName,
+		Messages:      []*ChatMessage{},
+		CurrMessageID: -1,
 	}
 
 	// start reading messages from the subscription in a loop

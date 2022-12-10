@@ -5,7 +5,9 @@ import (
 	"fmt"
 
 	recordAccount "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/account"
-	recordpeer "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/rettiwt-peer"
+	peerns "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/rettiwt-peer"
+	"github.com/ipfs/go-cid"
+	"github.com/libp2p/go-libp2p-core/peer"
 	kad "github.com/libp2p/go-libp2p-kad-dht"
 	recordlibp2p "github.com/libp2p/go-libp2p-record"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -21,7 +23,7 @@ func NewKademliaDHT(host host.Host, ctx context.Context, options ...kad.Option) 
 	ipfsDHT, err := kad.New(ctx, host, options...)
 
 	ipfsDHT.Validator.(recordlibp2p.NamespacedValidator)[recordAccount.AccountNS] = recordAccount.AccountNSValidator{}
-	ipfsDHT.Validator.(recordlibp2p.NamespacedValidator)[recordpeer.RettiwtPeerNS] = recordpeer.RettiwtPeerNSValidator{}
+	ipfsDHT.Validator.(recordlibp2p.NamespacedValidator)[peerns.RettiwtPeerNS] = peerns.RettiwtPeerNSValidator{}
 
 	if err != nil {
 		return nil, err
@@ -66,4 +68,16 @@ func (kadDHT KademliaDHT) PutValue(key string, value []byte) ([]byte, error) {
 	err = kadDHT.IpfsDHT.PutValue(kadDHT.ctx, key, value)
 
 	return oldVal, err
+}
+
+func (kadDHT KademliaDHT) Provide(cid cid.Cid) error {
+	return kadDHT.IpfsDHT.Provide(kadDHT.ctx, cid, true)
+}
+
+func (kadDHT KademliaDHT) FindProviders(cid cid.Cid) ([]peer.AddrInfo, error) {
+	return kadDHT.IpfsDHT.FindProviders(kadDHT.ctx, cid)
+}
+
+func (kadDHT KademliaDHT) GetPeerID() peer.ID {
+	return kadDHT.IpfsDHT.Host().ID()
 }
