@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"sync"
 	"time"
@@ -41,7 +42,6 @@ type ChatRoom struct {
 // ChatMessage gets converted to/from JSON and sent in the body of pubsub messages.
 type ChatMessage struct {
 	Message    string
-	SenderID   string
 	SenderNick string
 	TimeStamp  time.Time
 }
@@ -81,7 +81,6 @@ func JoinChatRoom(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, nickna
 func (cr *ChatRoom) Publish(message string) error {
 	m := ChatMessage{
 		Message:    message,
-		SenderID:   cr.self.Pretty(),
 		SenderNick: cr.nick,
 		TimeStamp:  time.Now(),
 	}
@@ -204,4 +203,104 @@ func UpdateTimeline(timelines []*ChatRoom) {
 
 	}
 
+}
+
+func StartTimelines(username string, ps *pubsub.PubSub, ctx context.Context, selfID peer.ID) ([]*ChatRoom, *ChatRoom) {
+	var timelines []*ChatRoom
+	var ownTimeline *ChatRoom
+	var timeline_json_file []byte
+	timeline_json := make(map[string][]ChatMessage)
+	if _, err := os.Stat("./nodes/" + username + ".timelines.json"); err != nil {
+
+		generalTimeline, err := JoinChatRoom(ctx, ps, selfID, username, "rettiwt")
+		if err != nil {
+			panic(err)
+		}
+		ownTimeline, err := JoinChatRoom(ctx, ps, selfID, username, username)
+		if err != nil {
+			panic(err)
+		}
+		timelines = append(timelines, ownTimeline)
+		timelines = append(timelines, generalTimeline)
+
+		return timelines, ownTimeline
+
+	}
+
+	timeline_json_file, err := os.ReadFile("./nodes/" + username + ".timelines.json")
+	if err != nil {
+		fmt.Println("Error reading timeline json: ", err)
+	}
+	err = json.Unmarshal(timeline_json_file, &timeline_json)
+	if err != nil {
+		fmt.Println("Error unmarshalling timeline json: ", err)
+	}
+
+	for user, messages := range timeline_json {
+		topic, err := ps.Join(user)
+		if err != nil {
+			fmt.Println("Error joining topic: ", err)
+			continue
+
+		}
+
+		// and subscribe to it
+		sub, err := topic.Subscribe()
+		if err != nil {
+			fmt.Println("Error subscribing topic: ", err)
+			continue
+
+		}
+
+		msgs_pointers := []*ChatMessage{}
+		for _, msg := range messages {
+			fmt.Print("\n\n\n\n")
+			fmt.Println(msg)
+			msg_pointer := &ChatMessage{}
+			*msg_pointer = msg
+
+			msgs_pointers = append(msgs_pointers, msg_pointer)
+		}
+
+		cr := &ChatRoom{
+			ctx:      ctx,
+			ps:       ps,
+			topic:    topic,
+			sub:      sub,
+			self:     selfID,
+			nick:     username,
+			roomName: user,
+			Messages: msgs_pointers,
+		}
+
+		if user == username {
+			ownTimeline = cr
+		}
+
+		timelines = append(timelines, cr)
+	}
+
+	return timelines, ownTimeline
+
+}
+
+func DownloadTimelines(timelines []*ChatRoom, username string) {
+	timeline_json := make(map[string][]ChatMessage)
+
+	for _, timeline := range timelines {
+		dereferenced_msgs := []ChatMessage{}
+		for _, msg := range timeline.Messages {
+			dereferenced_msgs = append(dereferenced_msgs, *msg)
+		}
+		timeline_json[timeline.roomName] = dereferenced_msgs
+	}
+
+	json, err := json.Marshal(timeline_json)
+	if err != nil {
+		fmt.Println("Error marshalling timeline json: ", err)
+	}
+	err = os.WriteFile("./nodes/"+username+".timelines.json", json, 0666)
+	if err != nil {
+		fmt.Println("Error writing timeline json: ", err)
+	}
 }

@@ -126,30 +126,11 @@ func main() {
 		}
 
 		var timelines []*timeline.ChatRoom
+		var personalTimeline *timeline.ChatRoom
 
 		pubSub := peer.PubSubInit(ctx, host, *username, *identityFilePath)
 
-		generalTimeline, err := timeline.JoinChatRoom(ctx, pubSub, host.ID(), *username, "rettiwt")
-		if err != nil {
-			panic(err)
-		}
-		ownTimeline, err := timeline.JoinChatRoom(ctx, pubSub, host.ID(), *username, *username)
-		if err != nil {
-			panic(err)
-		}
-
-		timelines = append(timelines, generalTimeline)
-		timelines = append(timelines, ownTimeline)
-
-		// appTopic, err := timeline.FollowUser(ctx, pubSub, host.ID(), "rettitw")
-		// if err != nil {
-		// 	panic(errors.New("Can't  join app topic: " + err.Error()))
-		// }
-
-		// myTopic, err := timeline.FollowUser(ctx, pubSub, host.ID(), *username)
-		// if err != nil {
-		// 	panic(errors.New("Can't  join own topic: " + err.Error()))
-		// }
+		timelines, personalTimeline = timeline.StartTimelines(*username, pubSub, ctx, host.ID())
 
 		var text string
 
@@ -159,10 +140,9 @@ func main() {
 			text, _ = reader.ReadString('\n')
 			text = strings.Replace(text, "\n", "", -1)
 			words := strings.Fields(text)
-
 			switch words[0] {
 			case "publish":
-				err := ownTimeline.Publish(words[1])
+				err := personalTimeline.Publish(words[1])
 				if err != nil {
 					fmt.Println(err)
 				}
@@ -191,6 +171,9 @@ func main() {
 				// }
 				// fmt.Println(apppeers)
 			}
+
+			timeline.DownloadTimelines(timelines, *username)
+
 		}
 
 	default:
