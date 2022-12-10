@@ -8,10 +8,10 @@ import (
 	"os"
 	"strings"
 
-	recordpeer "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/rettiwt-peer"
 	log "github.com/ipfs/go-log/v2"
 
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/bootstrap"
+	contentRouting "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/content-routing"
 	peer "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/rettiwt-peer"
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/timeline"
 )
@@ -86,7 +86,6 @@ func main() {
 	switch *mode {
 	case "bootstrap":
 		bootstrap.BootstrapNodeInit(*identityFilePath, *bootstrapPeersListFilePath, *port)
-		fmt.Printf("bootstrap mode on port %d\n", *port)
 	case "peer":
 		if *username == "" || *password == "" {
 			fmt.Println("missing username or password")
@@ -97,14 +96,6 @@ func main() {
 		defer cancel()
 
 		host, dht := peer.NodeInit(ctx, *identityFilePath, *bootstrapPeersListFilePath, *port)
-
-		record := recordpeer.RettiwtPeerRecord{
-			Username: *username,
-		}
-
-		marshaledRecord := recordpeer.MarshalJson(&record)
-
-		dht.PutValue("/"+recordpeer.RettiwtPeerNS+"/"+host.ID().String(), marshaledRecord)
 
 		err := peer.RegisterUser(*register, dht, *username, *password)
 		if err != nil {
@@ -117,12 +108,11 @@ func main() {
 			fmt.Println(err)
 			return
 		}
-		marshaledRecord = recordpeer.MarshalJson(&record)
 
-		ret, err := dht.PutValue("/"+recordpeer.RettiwtPeerNS+"/"+host.ID().String(), marshaledRecord)
-		fmt.Println("ret: ", string(ret))
+		_, err = peer.RecordInit(username, dht, host) // nodeRecord here
 		if err != nil {
 			fmt.Println(err)
+			return
 		}
 
 		var timelines []*timeline.UserTimeline
@@ -130,7 +120,7 @@ func main() {
 
 		pubSub := peer.PubSubInit(ctx, host, *username, *identityFilePath)
 
-		timelines, personalTimeline = timeline.StartTimelines(*username, pubSub, ctx, host.ID())
+		timelines, personalTimeline = timeline.StartTimelines(*username, dht, pubSub, ctx, host.ID(), *identityFilePath)
 
 		var text string
 
@@ -142,18 +132,38 @@ func main() {
 			words := strings.Fields(text)
 			switch words[0] {
 			case "publish":
-				err := personalTimeline.Publish(words[1])
-				if err != nil {
-					fmt.Println(err)
-				}
-			case "followers":
-				timeline.GetFollowers(timelines, dht, words[1])
+				cid := contentRouting.NewCID(personalTimeline, host.ID().String())
+				personalTimeline.NewPost(cid, words[1])
+				contentRouting.ProvideNewPost(cid, dht)
+				contentRouting.AnounceNewPost(personalTimeline, *cid)
+
+			// case "followers":
+			// 	timeline.GetFollowers(timelines, dht, words[1])
 			case "follow":
+				// Ask dht for history
+				// Ask dht for providers for each post cid -> Get them and annouce ourselves as providers of them
+				// Follow the user pubsub topic
 				timelines = timeline.FollowUser(timelines, pubSub, ctx, host.ID(), *username, words[1])
+
 			case "unfollow":
 				timelines = timeline.UnfollowUser(timelines, words[1])
+
 			case "update":
-				timeline.UpdateTimeline(timelines)
+				// On message from pubsub topic, ask dht for providers of the post cid -> Get it and annouce ourselves as providers of it
+				timeline.UpdateTimeline(timelines) // Gets all the pending posts for each subscribed timeline
+				for _, timeline := range timelines {
+					for _, post := range timeline.PendingPosts {
+						addr, _ := dht.FindProviders(*post)
+						fmt.Println(addr)
+						break
+					}
+					break
+				}
+
+				// Get the posts
+
+				// Provide the posts
+
 			case "help":
 				fmt.Println("publish <string> - Publishes a tweet")
 				fmt.Println("follow <string> - Follows a user")
@@ -172,7 +182,7 @@ func main() {
 				// fmt.Println(apppeers)
 			}
 
-			timeline.DownloadTimelines(timelines, *username)
+			timeline.SaveTimelinesAndPosts(timelines, *username, *identityFilePath)
 
 		}
 

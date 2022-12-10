@@ -27,6 +27,7 @@ func BootstrapNodeInit(idFilePath, bootstrapPeerIdsFilePath string, port int) {
 
 	go peer.DiscoverPeers(ctx, host, dht, "rettiwt")
 
+	logger.Info("bootstrap mode on port %d\n", port)
 	select {}
 }
 
