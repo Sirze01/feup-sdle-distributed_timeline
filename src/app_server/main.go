@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	
+	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/app_server/websocket"
 )
 
 func serveWs(pool *websocket.Pool, w http.ResponseWriter, r *http.Request) {
