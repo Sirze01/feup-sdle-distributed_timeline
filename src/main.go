@@ -125,8 +125,8 @@ func main() {
 			fmt.Println(err)
 		}
 
-		var timelines []*timeline.ChatRoom
-		var personalTimeline *timeline.ChatRoom
+		var timelines []*timeline.UserTimeline
+		var personalTimeline *timeline.UserTimeline
 
 		pubSub := peer.PubSubInit(ctx, host, *username, *identityFilePath)
 
