@@ -3,7 +3,6 @@ package contentRouting
 //package contentRouting
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/ipfs/go-cid"
@@ -12,16 +11,16 @@ import (
 
 const DEFAULT_RECORD_DURATION = 24
 
-type MessageCIDRecord struct {
+type PostCIDRecord struct {
 	Cid        cid.Cid
 	ExpireDate time.Time
 }
 
-func NewMessageCID(messageID int) cid.Cid {
-	return cid.NewCidV1(cid.DagCBOR, u.Hash([]byte(strconv.Itoa(messageID))))
+func NewPostCID(postID string) cid.Cid {
+	return cid.NewCidV1(cid.DagCBOR, u.Hash([]byte(postID)))
 }
 
-func NewMessageCIDRecord(cid cid.Cid, durationHours int) MessageCIDRecord {
+func NewPostCIDRecord(cid cid.Cid, durationHours int) PostCIDRecord {
 	var duration time.Duration
 	if durationHours == 0 {
 		duration = time.Duration(DEFAULT_RECORD_DURATION) * time.Hour
@@ -29,7 +28,7 @@ func NewMessageCIDRecord(cid cid.Cid, durationHours int) MessageCIDRecord {
 		duration = time.Duration(durationHours) * time.Hour
 	}
 
-	return MessageCIDRecord{
+	return PostCIDRecord{
 		Cid:        cid,
 		ExpireDate: time.Now().Add(duration),
 	}

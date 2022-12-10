@@ -10,8 +10,10 @@ import (
 	"github.com/libp2p/go-libp2p/core/host"
 
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/auth"
+	contentrouting "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/content-routing"
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht"
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/account"
+	peerns "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/rettiwt-peer"
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/peer"
 )
 
@@ -81,4 +83,20 @@ func PubSubInit(ctx context.Context, host host.Host, username, idFilePath string
 	}
 
 	return pubSub
+}
+
+func RecordInit(username *string, dht *dht.KademliaDHT, host host.Host) (contentrouting.RettiwtPeerRecord, error) {
+	// TODO: Check if it's not node first start and if not so get the record from disk instead of creating a new one
+	//      and clear the cids cache of expired cids
+	record := contentrouting.RettiwtPeerRecord{
+		Username:  *username,
+		CidsCache: []contentrouting.PostCIDRecord{},
+	}
+
+	marshaledRecord := contentrouting.PeerRecordMarshalJson(&record)
+
+	ret, err := dht.PutValue("/"+peerns.RettiwtPeerNS+"/"+host.ID().String(), marshaledRecord)
+	fmt.Println("ret: ", string(ret))
+
+	return record, err
 }

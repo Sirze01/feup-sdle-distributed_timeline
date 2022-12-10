@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"sort"
+	"path/filepath"
 	"sync"
 	"time"
 
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht"
 	recordpeer "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/rettiwt-peer"
+	"github.com/ipfs/go-cid"
 	log "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p/core/peer"
 
@@ -26,23 +27,24 @@ var timelineLogger = log.Logger("rettiwt-timeline")
 // can be published to the topic with UserTimeline.Publish, and received
 // messages are pushed to the Messages channel.
 type UserTimeline struct {
-	// Messages is a channel of messages received from other peers in the chat room
-	Messages []*TimelineMessage
+	// Posts is a channel of messages received from other peers in the chat room
+	Posts        map[string]TimelinePost
+	PendingPosts []*cid.Cid
 
 	ctx   context.Context
 	ps    *pubsub.PubSub
 	topic *pubsub.Topic
 	sub   *pubsub.Subscription
 
-	roomName      string
-	self          peer.ID
-	nick          string
-	CurrMessageID int
+	roomName   string
+	self       peer.ID
+	nick       string
+	CurrPostID int
 }
 
-// TimelineMessage gets converted to/from JSON and sent in the body of pubsub messages.
-type TimelineMessage struct {
-	Message    string
+// TimelinePost gets converted to/from JSON and sent in the body of pubsub messages.
+type TimelinePost struct {
+	Content    string
 	SenderNick string
 	TimeStamp  time.Time
 }
@@ -63,15 +65,15 @@ func JoinUserTimeline(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, ni
 	}
 
 	cr := &UserTimeline{
-		ctx:           ctx,
-		ps:            ps,
-		topic:         topic,
-		sub:           sub,
-		self:          selfID,
-		nick:          nickname,
-		roomName:      roomName,
-		Messages:      []*TimelineMessage{},
-		CurrMessageID: -1,
+		ctx:        ctx,
+		ps:         ps,
+		topic:      topic,
+		sub:        sub,
+		self:       selfID,
+		nick:       nickname,
+		roomName:   roomName,
+		Posts:      make(map[string]TimelinePost),
+		CurrPostID: -1,
 	}
 
 	// start reading messages from the subscription in a loop
@@ -80,20 +82,19 @@ func JoinUserTimeline(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, ni
 }
 
 // Publish sends a message to the pubsub topic.
-func (cr *UserTimeline) Publish(message string) error {
-	m := TimelineMessage{
-		Message:    message,
+func (cr *UserTimeline) NewPost(cid *cid.Cid, content string) TimelinePost {
+	m := TimelinePost{
+		Content:    content,
 		SenderNick: cr.nick,
 		TimeStamp:  time.Now(),
 	}
-	msgBytes, err := json.Marshal(m)
-	if err != nil {
-		return err
-	}
 
-	cr.Messages = append(cr.Messages, &m)
+	cr.Posts[cid.String()] = m
+	return m
+}
 
-	return cr.topic.Publish(cr.ctx, msgBytes)
+func (cr *UserTimeline) Publish(announcement string) error {
+	return cr.topic.Publish(cr.ctx, []byte(announcement))
 }
 
 func (cr *UserTimeline) ListPeers() []peer.ID {
@@ -157,15 +158,14 @@ func (cr *UserTimeline) readLoop(c chan struct{}) {
 		if msg.ReceivedFrom == cr.self {
 			continue
 		}
-		cm := new(TimelineMessage)
-		err = json.Unmarshal(msg.Data, cm)
+
+		var pendingPostCid cid.Cid
+		err = pendingPostCid.UnmarshalJSON(msg.Data)
 		if err != nil {
-			continue
+			return
 		}
-		// send valid messages onto the Messages channel
 
-		cr.Messages = append(cr.Messages, cm)
-
+		cr.PendingPosts = append(cr.PendingPosts, &pendingPostCid)
 	}
 }
 
@@ -182,7 +182,7 @@ func updateUserTimeline(userTimeline *UserTimeline, wg *sync.WaitGroup) {
 }
 
 func UpdateTimeline(timelines []*UserTimeline) {
-	allMessages := []*TimelineMessage{}
+	allPendingPosts := []*cid.Cid{}
 
 	fmt.Println("Updating timeline...")
 	wg := sync.WaitGroup{}
@@ -193,32 +193,28 @@ func UpdateTimeline(timelines []*UserTimeline) {
 	wg.Wait()
 
 	for _, timeline := range timelines {
-		allMessages = append(allMessages, timeline.Messages...)
+		allPendingPosts = append(allPendingPosts, timeline.PendingPosts...)
 	}
 
-	sort.Slice(allMessages, func(i, j int) bool {
-		return allMessages[i].TimeStamp.After(allMessages[j].TimeStamp)
-	})
-
-	for _, message := range allMessages {
-		fmt.Println("\n\nFrom: ", message.SenderNick, "\nMessage: ", message.Message, "\nTime: ", message.TimeStamp.Format("2006-01-02 15:04:05"))
-
+	// TODO: Log instead of printing
+	fmt.Println("CIDS:")
+	for _, cid := range allPendingPosts {
+		fmt.Println(cid.String())
 	}
 
 }
 
-func StartTimelines(username string, ps *pubsub.PubSub, ctx context.Context, selfID peer.ID) ([]*UserTimeline, *UserTimeline) {
+func StartTimelines(username string, ps *pubsub.PubSub, ctx context.Context, selfID peer.ID, postStoragePath string) ([]*UserTimeline, *UserTimeline) {
 	var timelines []*UserTimeline
 	var ownTimeline *UserTimeline
-	var timeline_json_file []byte
-	timeline_json := make(map[string][]TimelineMessage)
-	if _, err := os.Stat("./nodes/" + username + ".timelines.json"); err != nil {
+
+	if _, err := os.Stat(filepath.Dir(postStoragePath) + "/" + username + ".timelines.json"); err != nil {
 
 		generalTimeline, err := JoinUserTimeline(ctx, ps, selfID, username, "rettiwt")
 		if err != nil {
 			panic(err)
 		}
-		ownTimeline, err := JoinUserTimeline(ctx, ps, selfID, username, username)
+		ownTimeline, err = JoinUserTimeline(ctx, ps, selfID, username, username)
 		if err != nil {
 			panic(err)
 		}
@@ -229,16 +225,19 @@ func StartTimelines(username string, ps *pubsub.PubSub, ctx context.Context, sel
 
 	}
 
-	timeline_json_file, err := os.ReadFile("./nodes/" + username + ".timelines.json")
+	timelinesJSONFile, err := os.ReadFile(filepath.Dir(postStoragePath) + "/" + username + ".timelines.json")
 	if err != nil {
 		fmt.Println("Error reading timeline json: ", err)
 	}
-	err = json.Unmarshal(timeline_json_file, &timeline_json)
+
+	var timelinesJSON = map[string]map[string]TimelinePost{}
+
+	err = json.Unmarshal(timelinesJSONFile, &timelinesJSON)
 	if err != nil {
 		fmt.Println("Error unmarshalling timeline json: ", err)
 	}
 
-	for user, messages := range timeline_json {
+	for user, posts := range timelinesJSON {
 		topic, err := ps.Join(user)
 		if err != nil {
 			fmt.Println("Error joining topic: ", err)
@@ -254,23 +253,16 @@ func StartTimelines(username string, ps *pubsub.PubSub, ctx context.Context, sel
 
 		}
 
-		msgs_pointers := []*TimelineMessage{}
-		for _, msg := range messages {
-			msg_pointer := &TimelineMessage{}
-			*msg_pointer = msg
-
-			msgs_pointers = append(msgs_pointers, msg_pointer)
-		}
-
 		cr := &UserTimeline{
-			ctx:      ctx,
-			ps:       ps,
-			topic:    topic,
-			sub:      sub,
-			self:     selfID,
-			nick:     username,
-			roomName: user,
-			Messages: msgs_pointers,
+			ctx:        ctx,
+			ps:         ps,
+			topic:      topic,
+			sub:        sub,
+			self:       selfID,
+			nick:       username,
+			roomName:   user,
+			Posts:      posts,
+			CurrPostID: len(posts) - 1, // TODO: Check me
 		}
 
 		if user == username {
@@ -284,22 +276,18 @@ func StartTimelines(username string, ps *pubsub.PubSub, ctx context.Context, sel
 
 }
 
-func DownloadTimelines(timelines []*UserTimeline, username string) {
-	timeline_json := make(map[string][]TimelineMessage)
+func SaveTimelinesAndPosts(timelines []*UserTimeline, username, postStoragePath string) {
+	var timelinesToJSON = map[string]map[string]TimelinePost{}
 
 	for _, timeline := range timelines {
-		dereferenced_msgs := []TimelineMessage{}
-		for _, msg := range timeline.Messages {
-			dereferenced_msgs = append(dereferenced_msgs, *msg)
-		}
-		timeline_json[timeline.roomName] = dereferenced_msgs
+		timelinesToJSON[timeline.roomName] = timeline.Posts
 	}
 
-	json, err := json.MarshalIndent(timeline_json, "", "    ")
+	json, err := json.MarshalIndent(timelinesToJSON, "", "    ")
 	if err != nil {
 		fmt.Println("Error marshalling timeline json: ", err)
 	}
-	err = os.WriteFile("./nodes/"+username+".timelines.json", json, 0666)
+	err = os.WriteFile(filepath.Dir(postStoragePath)+"/"+username+".timelines.json", json, 0666)
 	if err != nil {
 		fmt.Println("Error writing timeline json: ", err)
 	}

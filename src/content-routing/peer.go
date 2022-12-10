@@ -6,7 +6,7 @@ import (
 
 type RettiwtPeerRecord struct {
 	Username  string
-	CidsCache []MessageCIDRecord
+	CidsCache []PostCIDRecord
 }
 
 func PeerRecordMarshalJson(record *RettiwtPeerRecord) []byte {
@@ -20,11 +20,11 @@ func PeerRecordUnmarshalJson(marshaledRecord []byte) *RettiwtPeerRecord {
 	return record
 }
 
-func (record RettiwtPeerRecord) addCID(cidRecord MessageCIDRecord) {
+func (record *RettiwtPeerRecord) addCID(cidRecord PostCIDRecord) {
 	record.CidsCache = append(record.CidsCache, cidRecord)
 }
 
-func (record RettiwtPeerRecord) deleteCID(i int) {
+func (record *RettiwtPeerRecord) deleteCID(i int) {
 	record.CidsCache[i] = record.CidsCache[len(record.CidsCache)-1]
 
 	record.CidsCache = record.CidsCache[:len(record.CidsCache)-1]
