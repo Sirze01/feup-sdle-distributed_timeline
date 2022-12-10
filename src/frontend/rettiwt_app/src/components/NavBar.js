@@ -51,7 +51,7 @@ function NavBar() {
           <Form className="mx-3">
           <Form.Control
             type="search"
-            placeholder="Search"
+            placeholder="Search User"
             className="me-2"
             aria-label="Search"
           />
