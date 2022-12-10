@@ -11,11 +11,11 @@ import (
 
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht"
 	recordpeer "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/rettiwt-peer"
+
 	"github.com/ipfs/go-cid"
 	log "github.com/ipfs/go-log/v2"
-	"github.com/libp2p/go-libp2p/core/peer"
-
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 // UserTimelineBufSize is the number of incoming messages to buffer for each topic.
@@ -204,7 +204,7 @@ func UpdateTimeline(timelines []*UserTimeline) {
 
 }
 
-func StartTimelines(username string, ps *pubsub.PubSub, ctx context.Context, selfID peer.ID, postStoragePath string) ([]*UserTimeline, *UserTimeline) {
+func StartTimelines(username string, dht dht.ContentProvider, ps *pubsub.PubSub, ctx context.Context, selfID peer.ID, postStoragePath string) ([]*UserTimeline, *UserTimeline) {
 	var timelines []*UserTimeline
 	var ownTimeline *UserTimeline
 
@@ -267,6 +267,19 @@ func StartTimelines(username string, ps *pubsub.PubSub, ctx context.Context, sel
 
 		if user == username {
 			ownTimeline = cr
+		}
+
+		for cidString := range posts {
+			cid, err := cid.Decode(cidString)
+			if err != nil {
+				fmt.Println("Error decoding cid: ", err)
+				continue
+			}
+			err = dht.Provide(cid)
+			if err != nil {
+				fmt.Println("Error providing cid: ", err)
+				continue
+			}
 		}
 
 		timelines = append(timelines, cr)

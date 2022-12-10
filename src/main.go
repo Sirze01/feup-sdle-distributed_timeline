@@ -132,7 +132,6 @@ func main() {
 			words := strings.Fields(text)
 			switch words[0] {
 			case "publish":
-
 				cid := contentRouting.NewCID(personalTimeline, host.ID().String())
 				personalTimeline.NewPost(cid, words[1])
 				contentRouting.ProvideNewPost(cid, dht)
@@ -160,6 +159,10 @@ func main() {
 					}
 					break
 				}
+
+				// Get the posts
+
+				// Provide the posts
 
 			case "help":
 				fmt.Println("publish <string> - Publishes a tweet")
