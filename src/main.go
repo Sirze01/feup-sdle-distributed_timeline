@@ -120,7 +120,7 @@ func main() {
 
 		pubSub := peer.PubSubInit(ctx, host, *username, *identityFilePath)
 
-		timelines, personalTimeline = timeline.StartTimelines(*username, pubSub, ctx, host.ID(), *identityFilePath)
+		timelines, personalTimeline = timeline.StartTimelines(*username, dht, pubSub, ctx, host.ID(), *identityFilePath)
 
 		var text string
 
