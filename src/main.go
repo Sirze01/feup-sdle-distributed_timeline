@@ -7,11 +7,15 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/ipfs/go-cid"
 	log "github.com/ipfs/go-log/v2"
+	"golang.org/x/exp/slices"
 
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/bootstrap"
 	contentRouting "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/content-routing"
+	peerns "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/rettiwt-peer"
 	peer "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/rettiwt-peer"
 	postretrieval "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/rettiwt-peer/post-retrieval"
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/timeline"
@@ -135,16 +139,40 @@ func main() {
 			case "publish":
 				cid := contentRouting.NewCID(personalTimeline, host.ID().String())
 				personalTimeline.NewPost(cid, words[1])
-				contentRouting.ProvideNewPost(cid, dht)
+				contentRouting.ProvideNewPost(cid, dht, *username)
 				contentRouting.AnounceNewPost(personalTimeline, *cid)
 
 			// case "followers":
 			// 	timeline.GetFollowers(timelines, dht, words[1])
 			case "follow":
 				// Ask dht for history
+				_, currTimeline := timeline.FollowUser(&timelines, pubSub, ctx, host.ID(), words[1])
+
+				marshaledPeerRecord, _ := dht.GetValue("/" + peerns.RettiwtPeerNS + "/" + currTimeline.Owner) // TODO: Handle error
+
+				peerRecord := contentRouting.PeerRecordUnmarshalJson(marshaledPeerRecord)
+				for _, cidRecord := range peerRecord.CidsCache {
+					if !cidRecord.ExpireDate.After(time.Now()) {
+						continue
+					}
+
+					addr, _ := dht.FindProviders(cidRecord.Cid)
+					fmt.Println(addr)
+
+					for _, peer := range addr {
+						post, err := postretrieval.RetrievePost(ctx, host, peer, cidRecord.Cid)
+						if err != nil {
+							fmt.Println(err)
+							continue
+						}
+						fmt.Println(post)
+						currTimeline.Posts[cidRecord.Cid.String()] = *post
+						contentRouting.ProvideNewPost(&cidRecord.Cid, dht, currTimeline.Owner)
+						break
+					}
+				}
 				// Ask dht for providers for each post cid -> Get them and annouce ourselves as providers of them
 				// Follow the user pubsub topic
-				timelines = timeline.FollowUser(timelines, pubSub, ctx, host.ID(), *username, words[1])
 
 			case "unfollow":
 				timelines = timeline.UnfollowUser(timelines, words[1])
@@ -152,7 +180,9 @@ func main() {
 			case "update":
 				// On message from pubsub topic, ask dht for providers of the post cid -> Get it and annouce ourselves as providers of it
 				timeline.UpdateTimeline(timelines) // Gets all the pending posts for each subscribed timeline
+
 				for _, timeline := range timelines {
+					retrievedCIDS := []*cid.Cid{}
 					for _, postCid := range timeline.PendingPosts {
 						addr, _ := dht.FindProviders(*postCid)
 						fmt.Println(addr)
@@ -161,13 +191,22 @@ func main() {
 							post, err := postretrieval.RetrievePost(ctx, host, peer, *postCid)
 							if err != nil {
 								fmt.Println(err)
-								break
+								continue
 							}
+							retrievedCIDS = append(retrievedCIDS, postCid)
 							fmt.Println(post)
 							timeline.Posts[postCid.String()] = *post
-							contentRouting.ProvideNewPost(postCid, dht)
+							contentRouting.ProvideNewPost(postCid, dht, timeline.Owner)
+							break
 						}
 					}
+					newPendingPosts := []*cid.Cid{}
+					for _, cid := range timeline.PendingPosts {
+						if !slices.Contains(retrievedCIDS, cid) {
+							newPendingPosts = append(newPendingPosts, cid)
+						}
+					}
+					timeline.PendingPosts = newPendingPosts
 				}
 
 				// Get the posts
