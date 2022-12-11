@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -24,11 +25,10 @@ func serveWs(pool *websocket.Pool, w http.ResponseWriter, r *http.Request) {
 }
 
 func setupRoutes() {
-	pool := websocket.NewPool()
-	go pool.Start()
-
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		serveWs(pool, w, r)
+	http.HandleFunc("/helloWorld", func(w http.ResponseWriter, r *http.Request) {
+		list := []string{r.RequestURI}
+		a, _ := json.Marshal(list)
+		w.Write(a)
 	})
 }
 
