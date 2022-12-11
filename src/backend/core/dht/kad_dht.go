@@ -2,8 +2,12 @@ package dht
 
 import (
 	"context"
+	"fmt"
 
-	record "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/account"
+	recordAccount "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/account"
+	peerns "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/rettiwt-peer"
+	"github.com/ipfs/go-cid"
+	"github.com/libp2p/go-libp2p-core/peer"
 	kad "github.com/libp2p/go-libp2p-kad-dht"
 	recordlibp2p "github.com/libp2p/go-libp2p-record"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -18,7 +22,8 @@ type KademliaDHT struct {
 func NewKademliaDHT(host host.Host, ctx context.Context, options ...kad.Option) (*KademliaDHT, error) {
 	ipfsDHT, err := kad.New(ctx, host, options...)
 
-	ipfsDHT.Validator.(recordlibp2p.NamespacedValidator)["account"] = record.AccountNSValidator{}
+	ipfsDHT.Validator.(recordlibp2p.NamespacedValidator)[recordAccount.AccountNS] = recordAccount.AccountNSValidator{}
+	ipfsDHT.Validator.(recordlibp2p.NamespacedValidator)[peerns.RettiwtPeerNS] = peerns.RettiwtPeerNSValidator{}
 
 	if err != nil {
 		return nil, err
@@ -58,7 +63,21 @@ func (kadDHT KademliaDHT) PutValue(key string, value []byte) ([]byte, error) {
 		return oldVal, err
 	}
 
+	fmt.Println("Putting value in DHT")
+
 	err = kadDHT.IpfsDHT.PutValue(kadDHT.ctx, key, value)
 
 	return oldVal, err
+}
+
+func (kadDHT KademliaDHT) Provide(cid cid.Cid) error {
+	return kadDHT.IpfsDHT.Provide(kadDHT.ctx, cid, true)
+}
+
+func (kadDHT KademliaDHT) FindProviders(cid cid.Cid) ([]peer.AddrInfo, error) {
+	return kadDHT.IpfsDHT.FindProviders(kadDHT.ctx, cid)
+}
+
+func (kadDHT KademliaDHT) GetPeerID() peer.ID {
+	return kadDHT.IpfsDHT.Host().ID()
 }

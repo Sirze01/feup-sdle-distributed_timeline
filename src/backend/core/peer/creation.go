@@ -58,6 +58,10 @@ func InitDHT(mode string, ctx context.Context, host host.Host, bootstrapPeerIdsF
 			continue
 		}
 
+		if peerinfo.ID == host.ID() {
+			continue
+		}
+
 		bootstrapPeers = append(bootstrapPeers, *peerinfo)
 	}
 
@@ -89,9 +93,9 @@ func InitDHT(mode string, ctx context.Context, host host.Host, bootstrapPeerIdsF
 		go func() {
 			defer wg.Done()
 			if err := host.Connect(ctx, bootPeerRef); err != nil {
-				creationLogger.Warning("Error connecting to bootstrap node", err)
+				creationLogger.Warning("Error connecting to bootstrap node: ", err)
 			} else {
-				creationLogger.Info("Connection established with bootstrap node:", bootPeerRef)
+				creationLogger.Info("Connection established with bootstrap node: ", bootPeerRef)
 			}
 		}()
 	}

@@ -27,7 +27,7 @@ func DiscoverPeers(ctx context.Context, h host.Host, dht *coreDHT.KademliaDHT, a
 
 			peers, err := discovery.FindPeers(ctx, routingDiscovery, announceString)
 			if err != nil {
-				creationLogger.Fatal(err)
+				creationLogger.Panic(err)
 			}
 
 			for _, p := range peers {
@@ -36,10 +36,10 @@ func DiscoverPeers(ctx context.Context, h host.Host, dht *coreDHT.KademliaDHT, a
 				}
 				if h.Network().Connectedness(p.ID) != network.Connected {
 					_, err = h.Network().DialPeer(ctx, p.ID)
-					fmt.Printf("Connected to peer %s\n", p.ID.String())
 					if err != nil {
 						continue
 					}
+					fmt.Printf("Connected to peer %s\n", p.ID.String())
 				}
 			}
 		}
