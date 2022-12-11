@@ -100,10 +100,10 @@ func (cr *UserTimeline) ListPeers() []peer.ID {
 	return cr.ps.ListPeers(cr.Owner)
 }
 
-func GetFollowers(timelines []*UserTimeline, dht *dht.KademliaDHT, roomname string) []string {
+func GetFollowers(timelines []*UserTimeline, dht *dht.KademliaDHT, timelineOwner string) []string {
 	var users = []string{}
 	for _, timeline := range timelines {
-		if timeline.Owner == roomname {
+		if timeline.Owner == timelineOwner {
 			for _, peer := range timeline.ListPeers() {
 				fmt.Println("Peer: ", peer.String())
 				username, err := dht.GetValue("/" + recordpeer.RettiwtPeerNS + "/" + peer.String())
@@ -131,16 +131,19 @@ func FollowUser(timelines *[]*UserTimeline, ps *pubsub.PubSub, ctx context.Conte
 	return timelines, timeline
 }
 
-func UnfollowUser(timelines []*UserTimeline, roomName string) []*UserTimeline {
+func UnfollowUser(timelines *[]*UserTimeline, timelineOwner string) *UserTimeline {
 	var newTimelines []*UserTimeline
-	for _, timeline := range timelines {
-		if timeline.Owner != roomName {
+	var ownerTimeline *UserTimeline
+	for _, timeline := range *timelines {
+		if timeline.Owner != timelineOwner {
 			newTimelines = append(newTimelines, timeline)
 		} else {
 			timeline.sub.Cancel()
+			ownerTimeline = timeline
 		}
 	}
-	return newTimelines
+	*timelines = newTimelines
+	return ownerTimeline
 }
 
 // readLoop pulls messages from the pubsub topic and pushes them onto the Messages channel.

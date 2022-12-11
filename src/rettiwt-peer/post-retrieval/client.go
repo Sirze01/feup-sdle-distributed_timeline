@@ -3,6 +3,7 @@ package postretrieval
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/timeline"
 
@@ -23,6 +24,10 @@ func readReply(stream network.Stream) (*timeline.TimelinePost, error) {
 }
 
 func RetrievePost(ctx context.Context, host host.Host, peer peer.AddrInfo, cid cid.Cid) (*timeline.TimelinePost, error) {
+	if peer.ID == host.ID() {
+		return nil, errors.New("can't retrieve from self")
+	}
+
 	host.Connect(ctx, peer)
 
 	stream, err := host.NewStream(ctx, peer.ID, getProtoId())

@@ -175,7 +175,7 @@ func main() {
 				// Follow the user pubsub topic
 
 			case "unfollow":
-				timelines = timeline.UnfollowUser(timelines, words[1])
+				_ = *timeline.UnfollowUser(&timelines, words[1])
 
 			case "update":
 				// On message from pubsub topic, ask dht for providers of the post cid -> Get it and annouce ourselves as providers of it
