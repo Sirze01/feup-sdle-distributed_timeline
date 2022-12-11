@@ -290,6 +290,19 @@ func StartTimelines(username string, dht dht.ContentProvider, ps *pubsub.PubSub,
 }
 
 func SaveTimelinesAndPosts(timelines []*UserTimeline, username, postStoragePath string) {
+	json, err := TimelinesToJSON(timelines)
+	if err != nil {
+		fmt.Println("Error converting timelines to json: ", err)
+		return
+	}
+
+	err = os.WriteFile(filepath.Dir(postStoragePath)+"/"+username+".timelines.json", json, 0666)
+	if err != nil {
+		fmt.Println("Error writing timeline json: ", err)
+	}
+}
+
+func TimelinesToJSON(timelines []*UserTimeline) ([]byte, error) {
 	var timelinesToJSON = map[string]map[string]TimelinePost{}
 
 	for _, timeline := range timelines {
@@ -300,10 +313,27 @@ func SaveTimelinesAndPosts(timelines []*UserTimeline, username, postStoragePath 
 	if err != nil {
 		fmt.Println("Error marshalling timeline json: ", err)
 	}
-	err = os.WriteFile(filepath.Dir(postStoragePath)+"/"+username+".timelines.json", json, 0666)
-	if err != nil {
-		fmt.Println("Error writing timeline json: ", err)
+	return json, err
+}
+
+func TimelineToJSON(timelines []*UserTimeline, username string) ([]byte, error) {
+	var timeline *UserTimeline
+	for _, t := range timelines {
+		if t.Owner == username {
+			timeline = t
+			break
+		}
 	}
+	if timeline == nil {
+		return nil, errors.New("timeline not found")
+	}
+
+	json, err := json.Marshal(timeline.Posts)
+	if err != nil {
+		return nil, errors.New("error marshalling timeline json: ")
+	}
+
+	return json, err
 }
 
 func RetrievePostFromCid(cid cid.Cid, timelines []*UserTimeline) (*TimelinePost, error) {
