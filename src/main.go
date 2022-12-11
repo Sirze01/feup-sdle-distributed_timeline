@@ -124,6 +124,8 @@ func main() {
 
 		var text string
 
+		timeline.CacheCleaner(timelines)
+
 		reader := bufio.NewReader(os.Stdin)
 		for {
 			fmt.Print("Please enter command (help | publish <string> | followers <string> | follow <string> | unfollow <string> | update) : ")

@@ -16,10 +16,12 @@ import (
 	log "github.com/ipfs/go-log/v2"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/procyon-projects/chrono"
 )
 
 // UserTimelineBufSize is the number of incoming messages to buffer for each topic.
-const UserTimelineBufSize = 128
+const UserTimelineNumMsgs = 100
+const PostExpireTime = 24 * time.Hour
 
 var timelineLogger = log.Logger("rettiwt-timeline")
 
@@ -47,6 +49,7 @@ type TimelinePost struct {
 	Content    string
 	SenderNick string
 	TimeStamp  time.Time
+	ExpireDate time.Time
 }
 
 // JoinUserTimeline tries to subscribe to the PubSub topic for the room name, returning
@@ -87,6 +90,7 @@ func (cr *UserTimeline) NewPost(cid *cid.Cid, content string) TimelinePost {
 		Content:    content,
 		SenderNick: cr.nick,
 		TimeStamp:  time.Now(),
+		ExpireDate: time.Now().Add(PostExpireTime),
 	}
 
 	cr.Posts[cid.String()] = m
@@ -303,5 +307,27 @@ func SaveTimelinesAndPosts(timelines []*UserTimeline, username, postStoragePath 
 	err = os.WriteFile(filepath.Dir(postStoragePath)+"/"+username+".timelines.json", json, 0666)
 	if err != nil {
 		fmt.Println("Error writing timeline json: ", err)
+	}
+}
+
+func CacheCleaner(timelines []*UserTimeline) {
+	taskScheduler := chrono.NewDefaultTaskScheduler()
+
+	_, err := taskScheduler.ScheduleAtFixedRate(func(ctx context.Context) {
+		cleaned_posts := map[string]TimelinePost{}
+		for _, timeline := range timelines {
+			for name, post := range timeline.Posts {
+				if time.Now().Before(post.ExpireDate) {
+					cleaned_posts[name] = post
+				}
+
+			}
+			timeline.Posts = cleaned_posts
+			cleaned_posts = map[string]TimelinePost{}
+		}
+	}, PostExpireTime)
+
+	if err == nil {
+		fmt.Println("Cleaner has been scheduled successfully.")
 	}
 }
