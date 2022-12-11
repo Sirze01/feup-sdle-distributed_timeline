@@ -34,6 +34,8 @@ func registerHandler(reply http.ResponseWriter, request *http.Request) {
 		return
 	}
 
+	username = query.Get("username")
+
 	reply.WriteHeader(http.StatusOK)
 }
 
@@ -168,7 +170,15 @@ func updateHandler(reply http.ResponseWriter, request *http.Request) {
 	}
 
 	// On message from pubsub topic, ask dht for providers of the post cid -> Get it and annouce ourselves as providers of it
+	fmt.Println("\n\ntimelines before update")
+	for _, timeline := range timelines {
+		fmt.Println(timeline.Owner)
+	}
 	timeline.UpdateTimeline(timelines) // Gets all the pending posts for each subscribed timeline
+	fmt.Println("\n\ntimelines after update")
+	for _, timeline := range timelines {
+		fmt.Println(timeline.PendingPosts)
+	}
 
 	for _, timeline := range timelines {
 		retrievedCIDS := []*cid.Cid{}
@@ -184,7 +194,7 @@ func updateHandler(reply http.ResponseWriter, request *http.Request) {
 				}
 				retrievedCIDS = append(retrievedCIDS, postCid)
 				fmt.Println(post)
-				timeline.Posts[postCid.String()] = *post
+				timeline.AddOtherUserPost(postCid.String(), post)
 				contentRouting.ProvideNewPost(postCid, peerDHT, timeline.Owner)
 				break
 			}
