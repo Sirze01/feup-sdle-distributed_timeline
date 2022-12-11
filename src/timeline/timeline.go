@@ -3,6 +3,7 @@ package timeline
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -304,4 +305,15 @@ func SaveTimelinesAndPosts(timelines []*UserTimeline, username, postStoragePath 
 	if err != nil {
 		fmt.Println("Error writing timeline json: ", err)
 	}
+}
+
+func RetrievePostFromCid(cid cid.Cid, timelines []*UserTimeline) (*TimelinePost, error) {
+	for _, timeline := range timelines {
+		for cidString, post := range timeline.Posts {
+			if cidString == cid.String() {
+				return &post, nil
+			}
+		}
+	}
+	return nil, errors.New("post not found")
 }

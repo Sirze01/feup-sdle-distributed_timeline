@@ -13,6 +13,7 @@ import (
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/bootstrap"
 	contentRouting "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/content-routing"
 	peer "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/rettiwt-peer"
+	postretrieval "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/rettiwt-peer/post-retrieval"
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/timeline"
 )
 
@@ -119,7 +120,7 @@ func main() {
 		var personalTimeline *timeline.UserTimeline
 
 		pubSub := peer.PubSubInit(ctx, host, *username, *identityFilePath)
-
+		postretrieval.RegisterProtocolHandler(host, &timelines)
 		timelines, personalTimeline = timeline.StartTimelines(*username, dht, pubSub, ctx, host.ID(), *identityFilePath)
 
 		var text string
@@ -152,12 +153,21 @@ func main() {
 				// On message from pubsub topic, ask dht for providers of the post cid -> Get it and annouce ourselves as providers of it
 				timeline.UpdateTimeline(timelines) // Gets all the pending posts for each subscribed timeline
 				for _, timeline := range timelines {
-					for _, post := range timeline.PendingPosts {
-						addr, _ := dht.FindProviders(*post)
+					for _, postCid := range timeline.PendingPosts {
+						addr, _ := dht.FindProviders(*postCid)
 						fmt.Println(addr)
-						break
+
+						for _, peer := range addr {
+							post, err := postretrieval.RetrievePost(ctx, host, peer, *postCid)
+							if err != nil {
+								fmt.Println(err)
+								break
+							}
+							fmt.Println(post)
+							timeline.Posts[postCid.String()] = *post
+							contentRouting.ProvideNewPost(postCid, dht)
+						}
 					}
-					break
 				}
 
 				// Get the posts
