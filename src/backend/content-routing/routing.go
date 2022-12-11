@@ -46,7 +46,15 @@ func ProvideNewPost(cid *cid.Cid, dht dht.ContentProvider, username string) erro
 	peerRecord.addCID(cidRecord)
 
 	marshaledPeerRecord = PeerRecordMarshalJson(peerRecord)
-	dht.PutValue("/"+peerns.RettiwtPeerNS+"/"+username, marshaledPeerRecord)
+	val, err := dht.PutValue("/"+peerns.RettiwtPeerNS+"/"+username, marshaledPeerRecord)
+	if err != nil {
+		fmt.Println(val)
+		fmt.Println(err)
+	}
+
+	marshaledPeerRecord, _ = dht.GetValue("/" + peerns.RettiwtPeerNS + "/" + username)
+	peerRecord = PeerRecordUnmarshalJson(marshaledPeerRecord)
+	fmt.Println(peerRecord)
 
 	SetCIDDeleteHandler(&cidRecord, peerRecord, dht, username)
 

@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht"
+	kadDHT "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht"
+	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/userid"
 
 	"github.com/ipfs/go-cid"
 	log "github.com/ipfs/go-log/v2"
@@ -134,18 +136,19 @@ func (cr *UserTimeline) ListPeers() []peer.ID {
 	return cr.ps.ListPeers(cr.Owner)
 }
 
-func GetFollowers(timelines []*UserTimeline, dht *dht.KademliaDHT, timelineOwner string) []string {
+func GetFollowers(timelines []*UserTimeline, dht *kadDHT.KademliaDHT, timelineOwner string) []string {
 	var users = []string{}
 	for _, timeline := range timelines {
 		if timeline.Owner == timelineOwner {
 			for _, peer := range timeline.ListPeers() {
 				fmt.Println("Peer: ", peer.String())
-				// username, err := dht.GetValue("/" + recordpeer.RettiwtPeerNS + "/" + peer.String())
-				// if err != nil {
-				// 	users = append(users, string(username))
-				// } else {
-				// 	timelineLogger.Error(err)
-				// }
+				username, err := dht.GetValue("/" + userid.UserIDNS + "/" + peer.String())
+				if err != nil {
+					timelineLogger.Error(err)
+					continue
+				}
+
+				users = append(users, string(username))
 			}
 		}
 	}
@@ -215,29 +218,6 @@ func updateUserTimeline(userTimeline *UserTimeline, wg *sync.WaitGroup) {
 
 	}
 	wg.Done()
-}
-
-func UpdateTimeline(timelines []*UserTimeline) {
-	allPendingPosts := []*cid.Cid{}
-
-	fmt.Println("Updating timeline...")
-	wg := sync.WaitGroup{}
-	for _, timeline := range timelines {
-		wg.Add(1)
-		go updateUserTimeline(timeline, &wg)
-	}
-	wg.Wait()
-
-	for _, timeline := range timelines {
-		allPendingPosts = append(allPendingPosts, timeline.PendingPosts...)
-	}
-
-	// TODO: Log instead of printing
-	fmt.Println("CIDS:")
-	for _, cid := range allPendingPosts {
-		fmt.Println(cid.String())
-	}
-
 }
 
 func StartTimelines(username string, dht dht.ContentProvider, ps *pubsub.PubSub, ctx context.Context, selfID peer.ID, postStoragePath string) ([]*UserTimeline, *UserTimeline) {

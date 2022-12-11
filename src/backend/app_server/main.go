@@ -2,85 +2,80 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
-	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht"
+	contentRouting "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/content-routing"
+	kadDHT "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht"
+	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/userid"
 	peer "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/rettiwt-peer"
 	postretrieval "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/rettiwt-peer/post-retrieval"
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/timeline"
-
 	"github.com/ipfs/go-log"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	"github.com/libp2p/go-libp2p/core/host"
+	libp2phost "github.com/libp2p/go-libp2p/core/host"
+	"github.com/procyon-projects/chrono"
 )
 
-var ctx, cancel = context.WithCancel(context.Background())
-var peerHost host.Host = nil
-var peerDHT *dht.KademliaDHT = nil
-var pubSub *pubsub.PubSub = nil
-var loggedIn bool = false
-
+var dht *kadDHT.KademliaDHT
+var host *libp2phost.Host
 var timelines []*timeline.UserTimeline
 var personalTimeline *timeline.UserTimeline
-var username string
+
 var identityFilePath *string
 
-func setupRoutes() {
-	http.HandleFunc("/helloWorld", func(w http.ResponseWriter, r *http.Request) {
-		list := []string{r.RequestURI}
-		a, _ := json.Marshal(list)
-		w.Write(a)
-	})
+var globalContext *context.Context
+var globalpubsub *pubsub.PubSub
 
-	// /register?username=USERNAME&password=PASSWORD
+func setupHandlers() {
 	http.HandleFunc("/register", registerHandler)
 
-	// /login?username=USERNAME&password=PASSWORD
-	http.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
-		loginHandler(w, r)
-		setupUser()
+	http.HandleFunc("/login", func(reply http.ResponseWriter, request *http.Request) {
+		loginHandler(reply, request)
+		request.URL.Query().Get("username")
+		setupUser(request.URL.Query().Get("username"))
 	})
 
-	// /publish Body: CONTENT
 	http.HandleFunc("/publish", publishHandler)
 
-	// /follow?usernameToFollow=USERNAME
 	http.HandleFunc("/follow", followHandler)
 
-	// /follow?usernameToUnfollow=USERNAME
 	http.HandleFunc("/unfollow", unfollowHandler)
 
-	// /update
-	http.HandleFunc("/update", updateHandler)
-
-	// /timeline/all
 	http.HandleFunc("/timeline/all", allTimelineHandler)
 
-	// /timeline?username=USERNAME
 	http.HandleFunc("/timeline", timelineHandler)
-
 }
 
-func setupNode(identityFilePath, bootstrapPeersListFilePath *string, port *int) {
-	fmt.Println("Setting up node...")
+func setupUser(username string) {
+	a := *host
+	dht.PutValue("/"+userid.UserIDNS+"/"+a.ID().String(), []byte(username))
 
-	peerHost, peerDHT = peer.NodeInit(ctx, *identityFilePath, *bootstrapPeersListFilePath, *port)
-}
-
-func setupUser() {
-	_, err := peer.RecordInit(&username, peerDHT, peerHost) // nodeRecord here
+	_, err := peer.RecordInit(&username, dht, *host) // nodeRecord here
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	pubSub = peer.PubSubInit(ctx, peerHost, username, *identityFilePath)
-	postretrieval.RegisterProtocolHandler(peerHost, &timelines)
-	timelines, personalTimeline = timeline.StartTimelines(username, peerDHT, pubSub, ctx, peerHost.ID(), *identityFilePath)
+	pubSub := peer.PubSubInit(*globalContext, *host, username, *identityFilePath)
+	globalpubsub = pubSub
+	postretrieval.RegisterProtocolHandler(*host, &timelines)
+	timelines, personalTimeline = timeline.StartTimelines(username, dht, pubSub, *globalContext, a.ID(), *identityFilePath)
+
+	timeline.CacheCleaner(timelines)
+
+	taskScheduler := chrono.NewDefaultTaskScheduler()
+
+	_, err = taskScheduler.ScheduleWithFixedDelay(func(ctx context.Context) {
+		contentRouting.UpdateTimeline(*globalContext, dht, *host, timelines, personalTimeline.Owner, *identityFilePath)
+	}, 5*time.Second)
+
+	if err == nil {
+		fmt.Println("Task has been scheduled successfully.")
+	}
 }
 
 func main() {
@@ -144,9 +139,18 @@ func main() {
 		flag.Usage()
 		return
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	setupNode(identityFilePath, bootstrapPeersListFilePath, backendPort)
-	setupRoutes()
-	http.ListenAndServe(fmt.Sprintf(":%d", *frontendPort), nil)
-	select {}
+	globalContext = &ctx
+
+	hosta, dhta := peer.NodeInit(ctx, *identityFilePath, *bootstrapPeersListFilePath, *backendPort)
+	host = &hosta
+	dht = dhta
+	setupHandlers()
+	err := http.ListenAndServe(fmt.Sprintf(":%d", *frontendPort), nil)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 }

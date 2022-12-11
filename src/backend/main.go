@@ -16,6 +16,7 @@ import (
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/bootstrap"
 	contentRouting "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/content-routing"
 	peerns "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/rettiwt-peer"
+	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/userid"
 	peer "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/rettiwt-peer"
 	postretrieval "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/rettiwt-peer/post-retrieval"
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/timeline"
@@ -114,6 +115,8 @@ func main() {
 			return
 		}
 
+		dht.PutValue("/"+userid.UserIDNS+"/"+host.ID().String(), []byte(*username))
+
 		_, err = peer.RecordInit(username, dht, host) // nodeRecord here
 		if err != nil {
 			fmt.Println(err)
@@ -185,7 +188,7 @@ func main() {
 
 			case "update":
 				// On message from pubsub topic, ask dht for providers of the post cid -> Get it and annouce ourselves as providers of it
-				timeline.UpdateTimeline(timelines) // Gets all the pending posts for each subscribed timeline
+				contentRouting.UpdateTimeline(ctx, dht, host, timelines, *username, *identityFilePath) // Gets all the pending posts for each subscribed timeline
 
 				for _, timeline := range timelines {
 					retrievedCIDS := []*cid.Cid{}
