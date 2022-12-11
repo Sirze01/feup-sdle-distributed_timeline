@@ -129,6 +129,8 @@ func main() {
 
 		var text string
 
+		timeline.CacheCleaner(timelines)
+
 		reader := bufio.NewReader(os.Stdin)
 		for {
 			fmt.Print("Please enter command (help | publish <string> | followers <string> | follow <string> | unfollow <string> | update) : ")
@@ -199,7 +201,8 @@ func main() {
 							}
 							retrievedCIDS = append(retrievedCIDS, postCid)
 							fmt.Println(post)
-							timeline.Posts[postCid.String()] = *post
+							// timeline.Posts[postCid.String()] = *post
+							timeline.AddOtherUserPost(postCid.String(), post)
 							contentRouting.ProvideNewPost(postCid, dht, timeline.Owner)
 							break
 						}

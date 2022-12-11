@@ -16,10 +16,12 @@ import (
 	log "github.com/ipfs/go-log/v2"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/procyon-projects/chrono"
 )
 
 // UserTimelineBufSize is the number of incoming messages to buffer for each topic.
-const UserTimelineBufSize = 128
+const UserTimelineMaxMsgs = 200
+const PostExpireTime = 24 * time.Hour
 
 var timelineLogger = log.Logger("rettiwt-timeline")
 
@@ -46,6 +48,7 @@ type TimelinePost struct {
 	Content    string
 	SenderNick string
 	TimeStamp  time.Time
+	ExpireDate time.Time
 }
 
 // JoinUserTimeline tries to subscribe to the PubSub topic for the room name, returning
@@ -85,10 +88,42 @@ func (cr *UserTimeline) NewPost(cid *cid.Cid, content string) TimelinePost {
 		Content:    content,
 		SenderNick: cr.Owner,
 		TimeStamp:  time.Now(),
+		ExpireDate: time.Now().Add(PostExpireTime),
 	}
+
+	cr.deleteExcessPosts()
 
 	cr.Posts[cid.String()] = m
 	return m
+}
+
+func (cr *UserTimeline) AddOtherUserPost(cid string, receivedPost *TimelinePost) {
+	cr.deleteExcessPosts()
+	cr.Posts[cid] = *receivedPost
+}
+
+func (cr *UserTimeline) deleteExcessPosts() {
+	if len(cr.Posts)+1 > UserTimelineMaxMsgs {
+		var oldestPostCid string
+		var oldestPost TimelinePost
+		first := true
+
+		for cid, post := range cr.Posts {
+			if first {
+				oldestPost = post
+				oldestPostCid = cid
+				first = false
+			} else {
+				if oldestPost.TimeStamp.After(post.TimeStamp) {
+					oldestPost = post
+					oldestPostCid = cid
+				}
+			}
+		}
+
+		delete(cr.Posts, oldestPostCid)
+
+	}
 }
 
 func (cr *UserTimeline) Publish(announcement string) error {
@@ -336,6 +371,27 @@ func TimelineToJSON(timelines []*UserTimeline, username string) ([]byte, error) 
 	return json, err
 }
 
+func CacheCleaner(timelines []*UserTimeline) {
+	taskScheduler := chrono.NewDefaultTaskScheduler()
+
+	_, err := taskScheduler.ScheduleAtFixedRate(func(ctx context.Context) {
+		cleaned_posts := map[string]TimelinePost{}
+		for _, timeline := range timelines {
+			for name, post := range timeline.Posts {
+				if time.Now().Before(post.ExpireDate) {
+					cleaned_posts[name] = post
+				}
+
+			}
+			timeline.Posts = cleaned_posts
+			cleaned_posts = map[string]TimelinePost{}
+		}
+	}, PostExpireTime)
+
+	if err == nil {
+		fmt.Println("Cleaner has been scheduled successfully.")
+	}
+}
 func RetrievePostFromCid(cid cid.Cid, timelines []*UserTimeline) (*TimelinePost, error) {
 	for _, timeline := range timelines {
 		for cidString, post := range timeline.Posts {
