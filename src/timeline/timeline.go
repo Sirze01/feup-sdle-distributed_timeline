@@ -91,7 +91,19 @@ func (cr *UserTimeline) NewPost(cid *cid.Cid, content string) TimelinePost {
 		ExpireDate: time.Now().Add(PostExpireTime),
 	}
 
-	if len(cr.Posts) > UserTimelineMaxMsgs {
+	cr.deleteExcessPosts()
+
+	cr.Posts[cid.String()] = m
+	return m
+}
+
+func (cr *UserTimeline) AddOtherUserPost(cid string, receivedPost *TimelinePost) {
+	cr.deleteExcessPosts()
+	cr.Posts[cid] = *receivedPost
+}
+
+func (cr *UserTimeline) deleteExcessPosts() {
+	if len(cr.Posts)+1 > UserTimelineMaxMsgs {
 		var oldestPostCid string
 		var oldestPost TimelinePost
 		first := true
@@ -112,9 +124,6 @@ func (cr *UserTimeline) NewPost(cid *cid.Cid, content string) TimelinePost {
 		delete(cr.Posts, oldestPostCid)
 
 	}
-
-	cr.Posts[cid.String()] = m
-	return m
 }
 
 func (cr *UserTimeline) Publish(announcement string) error {

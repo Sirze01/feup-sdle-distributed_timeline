@@ -201,7 +201,8 @@ func main() {
 							}
 							retrievedCIDS = append(retrievedCIDS, postCid)
 							fmt.Println(post)
-							timeline.Posts[postCid.String()] = *post
+							// timeline.Posts[postCid.String()] = *post
+							timeline.AddOtherUserPost(postCid.String(), post)
 							contentRouting.ProvideNewPost(postCid, dht, timeline.Owner)
 							break
 						}
