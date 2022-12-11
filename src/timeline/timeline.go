@@ -3,6 +3,7 @@ package timeline
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,7 +11,6 @@ import (
 	"time"
 
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht"
-	recordpeer "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/rettiwt-peer"
 
 	"github.com/ipfs/go-cid"
 	log "github.com/ipfs/go-log/v2"
@@ -20,7 +20,7 @@ import (
 )
 
 // UserTimelineBufSize is the number of incoming messages to buffer for each topic.
-const UserTimelineNumMsgs = 100
+const UserTimelineMaxMsgs = 200
 const PostExpireTime = 24 * time.Hour
 
 var timelineLogger = log.Logger("rettiwt-timeline")
@@ -38,9 +38,8 @@ type UserTimeline struct {
 	topic *pubsub.Topic
 	sub   *pubsub.Subscription
 
-	roomName   string
+	Owner      string
 	self       peer.ID
-	nick       string
 	CurrPostID int
 }
 
@@ -54,9 +53,9 @@ type TimelinePost struct {
 
 // JoinUserTimeline tries to subscribe to the PubSub topic for the room name, returning
 // a UserTimeline on success.
-func JoinUserTimeline(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, nickname string, roomName string) (*UserTimeline, error) {
+func JoinUserTimeline(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, timelineOwner string) (*UserTimeline, error) {
 	// join the pubsub topic
-	topic, err := ps.Join(roomName)
+	topic, err := ps.Join(timelineOwner)
 	if err != nil {
 		return nil, err
 	}
@@ -73,8 +72,7 @@ func JoinUserTimeline(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, ni
 		topic:      topic,
 		sub:        sub,
 		self:       selfID,
-		nick:       nickname,
-		roomName:   roomName,
+		Owner:      timelineOwner,
 		Posts:      make(map[string]TimelinePost),
 		CurrPostID: -1,
 	}
@@ -88,9 +86,31 @@ func JoinUserTimeline(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, ni
 func (cr *UserTimeline) NewPost(cid *cid.Cid, content string) TimelinePost {
 	m := TimelinePost{
 		Content:    content,
-		SenderNick: cr.nick,
+		SenderNick: cr.Owner,
 		TimeStamp:  time.Now(),
 		ExpireDate: time.Now().Add(PostExpireTime),
+	}
+
+	if len(cr.Posts) > UserTimelineMaxMsgs {
+		var oldestPostCid string
+		var oldestPost TimelinePost
+		first := true
+
+		for cid, post := range cr.Posts {
+			if first {
+				oldestPost = post
+				oldestPostCid = cid
+				first = false
+			} else {
+				if oldestPost.TimeStamp.After(post.TimeStamp) {
+					oldestPost = post
+					oldestPostCid = cid
+				}
+			}
+		}
+
+		delete(cr.Posts, oldestPostCid)
+
 	}
 
 	cr.Posts[cid.String()] = m
@@ -102,21 +122,21 @@ func (cr *UserTimeline) Publish(announcement string) error {
 }
 
 func (cr *UserTimeline) ListPeers() []peer.ID {
-	return cr.ps.ListPeers(cr.roomName)
+	return cr.ps.ListPeers(cr.Owner)
 }
 
-func GetFollowers(timelines []*UserTimeline, dht *dht.KademliaDHT, roomname string) []string {
+func GetFollowers(timelines []*UserTimeline, dht *dht.KademliaDHT, timelineOwner string) []string {
 	var users = []string{}
 	for _, timeline := range timelines {
-		if timeline.roomName == roomname {
+		if timeline.Owner == timelineOwner {
 			for _, peer := range timeline.ListPeers() {
 				fmt.Println("Peer: ", peer.String())
-				username, err := dht.GetValue("/" + recordpeer.RettiwtPeerNS + "/" + peer.String())
-				if err != nil {
-					users = append(users, string(username))
-				} else {
-					timelineLogger.Error(err)
-				}
+				// username, err := dht.GetValue("/" + recordpeer.RettiwtPeerNS + "/" + peer.String())
+				// if err != nil {
+				// 	users = append(users, string(username))
+				// } else {
+				// 	timelineLogger.Error(err)
+				// }
 			}
 		}
 	}
@@ -126,26 +146,29 @@ func GetFollowers(timelines []*UserTimeline, dht *dht.KademliaDHT, roomname stri
 
 }
 
-func FollowUser(timelines []*UserTimeline, ps *pubsub.PubSub, ctx context.Context, selfID peer.ID, nickname string, roomName string) []*UserTimeline {
-	timeline, err := JoinUserTimeline(ctx, ps, selfID, nickname, roomName)
+func FollowUser(timelines *[]*UserTimeline, ps *pubsub.PubSub, ctx context.Context, selfID peer.ID, timelineOwner string) (*[]*UserTimeline, *UserTimeline) {
+	timeline, err := JoinUserTimeline(ctx, ps, selfID, timelineOwner)
 	if err != nil {
 		fmt.Println("Error joining chat room: ", err)
-		return timelines
+		return timelines, nil
 	}
-	timelines = append(timelines, timeline)
-	return timelines
+	*timelines = append(*timelines, timeline)
+	return timelines, timeline
 }
 
-func UnfollowUser(timelines []*UserTimeline, roomName string) []*UserTimeline {
+func UnfollowUser(timelines *[]*UserTimeline, timelineOwner string) *UserTimeline {
 	var newTimelines []*UserTimeline
-	for _, timeline := range timelines {
-		if timeline.roomName != roomName {
+	var ownerTimeline *UserTimeline
+	for _, timeline := range *timelines {
+		if timeline.Owner != timelineOwner {
 			newTimelines = append(newTimelines, timeline)
 		} else {
 			timeline.sub.Cancel()
+			ownerTimeline = timeline
 		}
 	}
-	return newTimelines
+	*timelines = newTimelines
+	return ownerTimeline
 }
 
 // readLoop pulls messages from the pubsub topic and pushes them onto the Messages channel.
@@ -214,11 +237,11 @@ func StartTimelines(username string, dht dht.ContentProvider, ps *pubsub.PubSub,
 
 	if _, err := os.Stat(filepath.Dir(postStoragePath) + "/" + username + ".timelines.json"); err != nil {
 
-		generalTimeline, err := JoinUserTimeline(ctx, ps, selfID, username, "rettiwt")
+		generalTimeline, err := JoinUserTimeline(ctx, ps, selfID, "rettiwt")
 		if err != nil {
 			panic(err)
 		}
-		ownTimeline, err = JoinUserTimeline(ctx, ps, selfID, username, username)
+		ownTimeline, err = JoinUserTimeline(ctx, ps, selfID, username)
 		if err != nil {
 			panic(err)
 		}
@@ -263,8 +286,7 @@ func StartTimelines(username string, dht dht.ContentProvider, ps *pubsub.PubSub,
 			topic:      topic,
 			sub:        sub,
 			self:       selfID,
-			nick:       username,
-			roomName:   user,
+			Owner:      user,
 			Posts:      posts,
 			CurrPostID: len(posts) - 1, // TODO: Check me
 		}
@@ -297,7 +319,7 @@ func SaveTimelinesAndPosts(timelines []*UserTimeline, username, postStoragePath 
 	var timelinesToJSON = map[string]map[string]TimelinePost{}
 
 	for _, timeline := range timelines {
-		timelinesToJSON[timeline.roomName] = timeline.Posts
+		timelinesToJSON[timeline.Owner] = timeline.Posts
 	}
 
 	json, err := json.MarshalIndent(timelinesToJSON, "", "    ")
@@ -330,4 +352,14 @@ func CacheCleaner(timelines []*UserTimeline) {
 	if err == nil {
 		fmt.Println("Cleaner has been scheduled successfully.")
 	}
+}
+func RetrievePostFromCid(cid cid.Cid, timelines []*UserTimeline) (*TimelinePost, error) {
+	for _, timeline := range timelines {
+		for cidString, post := range timeline.Posts {
+			if cidString == cid.String() {
+				return &post, nil
+			}
+		}
+	}
+	return nil, errors.New("post not found")
 }

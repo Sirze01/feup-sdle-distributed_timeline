@@ -6,6 +6,7 @@ import (
 
 	recordAccount "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/account"
 	peerns "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/rettiwt-peer"
+	useridns "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/userid"
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/peer"
 	kad "github.com/libp2p/go-libp2p-kad-dht"
@@ -24,6 +25,7 @@ func NewKademliaDHT(host host.Host, ctx context.Context, options ...kad.Option) 
 
 	ipfsDHT.Validator.(recordlibp2p.NamespacedValidator)[recordAccount.AccountNS] = recordAccount.AccountNSValidator{}
 	ipfsDHT.Validator.(recordlibp2p.NamespacedValidator)[peerns.RettiwtPeerNS] = peerns.RettiwtPeerNSValidator{}
+	ipfsDHT.Validator.(recordlibp2p.NamespacedValidator)[useridns.UserIDNS] = useridns.UserIDNSValidator{}
 
 	if err != nil {
 		return nil, err

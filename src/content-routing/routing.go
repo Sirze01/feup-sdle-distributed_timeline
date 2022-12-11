@@ -27,14 +27,17 @@ func AnounceNewPost(timeline *timeline.UserTimeline, cid cid.Cid) error {
 	return err
 }
 
-func ProvideNewPost(cid *cid.Cid, dht dht.ContentProvider) error {
+func ProvideNewPost(cid *cid.Cid, dht dht.ContentProvider, username string) error {
 	err := dht.Provide(*cid)
 
 	if err != nil {
 		return err
 	}
 
-	marshaledPeerRecord, _ := dht.GetValue("/" + peerns.RettiwtPeerNS + "/" + dht.GetPeerID().String()) // TODO: Handle error
+	marshaledPeerRecord, err := dht.GetValue("/" + peerns.RettiwtPeerNS + "/" + username) // TODO: Handle error
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	peerRecord := PeerRecordUnmarshalJson(marshaledPeerRecord)
 
@@ -42,12 +45,15 @@ func ProvideNewPost(cid *cid.Cid, dht dht.ContentProvider) error {
 
 	peerRecord.addCID(cidRecord)
 
-	SetCIDDeleteHandler(&cidRecord, peerRecord, dht)
+	marshaledPeerRecord = PeerRecordMarshalJson(peerRecord)
+	dht.PutValue("/"+peerns.RettiwtPeerNS+"/"+username, marshaledPeerRecord)
+
+	SetCIDDeleteHandler(&cidRecord, peerRecord, dht, username)
 
 	return nil
 }
 
-func SetCIDDeleteHandler(cidRecord *PostCIDRecord, peerRecord *RettiwtPeerRecord, dht dht.ContentProvider) error {
+func SetCIDDeleteHandler(cidRecord *PostCIDRecord, peerRecord *RettiwtPeerRecord, dht dht.ContentProvider, username string) error {
 	taskScheduler := chrono.NewDefaultTaskScheduler()
 
 	_, err := taskScheduler.Schedule(func(ctx context.Context) {
@@ -60,7 +66,7 @@ func SetCIDDeleteHandler(cidRecord *PostCIDRecord, peerRecord *RettiwtPeerRecord
 
 				marshaledPeerRecord := PeerRecordMarshalJson(peerRecord)
 
-				dht.PutValue("/"+peerns.RettiwtPeerNS+"/"+dht.GetPeerID().String(), marshaledPeerRecord)
+				dht.PutValue("/"+peerns.RettiwtPeerNS+"/"+username, marshaledPeerRecord)
 			}
 		}
 	}, chrono.WithTime(cidRecord.ExpireDate))
