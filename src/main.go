@@ -145,6 +145,10 @@ func main() {
 			// case "followers":
 			// 	timeline.GetFollowers(timelines, dht, words[1])
 			case "follow":
+				if words[1] == *username {
+					fmt.Println("You can't follow yourself")
+					break
+				}
 				// Ask dht for history
 				_, currTimeline := timeline.FollowUser(&timelines, pubSub, ctx, host.ID(), words[1])
 
@@ -212,6 +216,13 @@ func main() {
 				// Get the posts
 
 				// Provide the posts
+
+			case "followers":
+				if len(words) < 2 {
+					timeline.GetFollowers(timelines, dht, "rettiwt")
+				} else {
+					timeline.GetFollowers(timelines, dht, words[1])
+				}
 
 			case "help":
 				fmt.Println("publish <string> - Publishes a tweet")
