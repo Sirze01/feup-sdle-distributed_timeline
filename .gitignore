@@ -28,3 +28,5 @@ go.work
 
 rettiwt
 **/nodes/*
+
+**/node_modules/*
