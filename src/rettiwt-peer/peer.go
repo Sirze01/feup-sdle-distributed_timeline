@@ -95,7 +95,7 @@ func RecordInit(username *string, dht *dht.KademliaDHT, host host.Host) (content
 
 	marshaledRecord := contentrouting.PeerRecordMarshalJson(&record)
 
-	ret, err := dht.PutValue("/"+peerns.RettiwtPeerNS+"/"+host.ID().String(), marshaledRecord)
+	ret, err := dht.PutValue("/"+peerns.RettiwtPeerNS+"/"+*username, marshaledRecord)
 	fmt.Println("ret: ", string(ret))
 
 	return record, err
