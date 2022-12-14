@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -214,6 +215,23 @@ func main() {
 						}
 					}
 					timeline.PendingPosts = newPendingPosts
+				}
+
+				allMessages := []timeline.TimelinePost{}
+
+				for _, timeline := range timelines {
+					for _, post := range timeline.Posts {
+						allMessages = append(allMessages, post)
+					}
+				}
+
+				sort.Slice(allMessages, func(i, j int) bool {
+					return allMessages[i].TimeStamp.After(allMessages[j].TimeStamp)
+				})
+
+				for _, message := range allMessages {
+					fmt.Println("\n\nFrom: ", message.SenderNick, "\nMessage: ", message.Content, "\nTime: ", message.TimeStamp.Format("2006-01-02 15:04:05"))
+
 				}
 
 				// Get the posts
