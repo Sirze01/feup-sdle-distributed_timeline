@@ -28,7 +28,11 @@ func RetrievePost(ctx context.Context, host host.Host, peer peer.AddrInfo, cid c
 		return nil, errors.New("can't retrieve from self")
 	}
 
-	host.Connect(ctx, peer)
+	err := host.Connect(ctx, peer)
+	if err != nil {
+		logger.Error(err)
+		return nil, err
+	}
 
 	stream, err := host.NewStream(ctx, peer.ID, getProtoId())
 	if err != nil {

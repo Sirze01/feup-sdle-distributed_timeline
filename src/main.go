@@ -8,7 +8,9 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
+	peerns "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/rettiwt-peer"
 	"github.com/ipfs/go-cid"
 	log "github.com/ipfs/go-log/v2"
 	"golang.org/x/exp/slices"
@@ -126,15 +128,46 @@ func main() {
 		postretrieval.RegisterProtocolHandler(host, &timelines)
 		timelines, personalTimeline = timeline.StartTimelines(*username, dht, pubSub, ctx, host.ID(), *identityFilePath)
 
-		for _, timeline := range timelines {
-			postretrieval.UpdateTimelineMissingPosts(timeline, dht, host, ctx)
+		for _, currTimeline := range timelines {
+			marshaledPeerRecord, _ := dht.GetValue("/" + peerns.RettiwtPeerNS + "/" + currTimeline.Owner) // TODO: Handle error
+
+			peerRecord := contentRouting.PeerRecordUnmarshalJson(marshaledPeerRecord)
+			for _, cidRecord := range peerRecord.CidsCache {
+				if !cidRecord.ExpireDate.After(time.Now()) {
+					continue
+				}
+
+				addr, _ := dht.FindProviders(cidRecord.Cid)
+				fmt.Println(addr)
+
+				for _, peer := range addr {
+					post, err := postretrieval.RetrievePost(ctx, host, peer, cidRecord.Cid)
+					if err != nil {
+						fmt.Println(err)
+						continue
+					}
+					fmt.Println(post)
+					currTimeline.Posts[cidRecord.Cid.String()] = *post
+					contentRouting.ProvideNewPost(&cidRecord.Cid, dht, currTimeline.Owner)
+					break
+				}
+			}
 		}
 
 		var text string
 
 		timeline.CacheCleaner(timelines)
 
+		// username_str := *username
+		// bytes_username := []byte(username_str)
+
+		// _, err = dht.PutValue("/"+UserIDNS.UserIDNS+"/"+host.ID().String(), bytes_username)
+		// if err != nil {
+		// 	fmt.Println(err)
+		// }
+
 		reader := bufio.NewReader(os.Stdin)
+		followers_counter := 0
 		for {
 			fmt.Print("Please enter command (help | publish <string> | followers <string> | follow <string> | unfollow <string> | update) : ")
 			text, _ = reader.ReadString('\n')
@@ -157,7 +190,32 @@ func main() {
 				// Ask dht for history
 				_, currTimeline := timeline.FollowUser(&timelines, pubSub, ctx, host.ID(), words[1])
 
-				postretrieval.UpdateTimelineMissingPosts(currTimeline, dht, host, ctx)
+				fmt.Println("followed user: ", currTimeline.Owner)
+
+				marshaledPeerRecord, _ := dht.GetValue("/" + peerns.RettiwtPeerNS + "/" + currTimeline.Owner) // TODO: Handle error
+
+				peerRecord := contentRouting.PeerRecordUnmarshalJson(marshaledPeerRecord)
+				for _, cidRecord := range peerRecord.CidsCache {
+					if !cidRecord.ExpireDate.After(time.Now()) {
+						continue
+					}
+
+					addr, _ := dht.FindProviders(cidRecord.Cid)
+					fmt.Println(addr)
+
+					for _, peer := range addr {
+						post, err := postretrieval.RetrievePost(ctx, host, peer, cidRecord.Cid)
+						if err != nil {
+							fmt.Println(err)
+							continue
+						}
+						fmt.Println(post)
+						currTimeline.Posts[cidRecord.Cid.String()] = *post
+						contentRouting.ProvideNewPost(&cidRecord.Cid, dht, currTimeline.Owner)
+						break
+					}
+				}
+
 				// Ask dht for providers for each post cid -> Get them and annouce ourselves as providers of them
 				// Follow the user pubsub topic
 
@@ -220,9 +278,17 @@ func main() {
 
 			case "followers":
 				if len(words) < 2 {
-					timeline.GetFollowers(timelines, dht, "rettiwt")
+					fmt.Println(timeline.GetFollowers(timelines, dht, "rettiwt"))
 				} else {
-					timeline.GetFollowers(timelines, dht, words[1])
+					if followers_counter == 0 {
+						l := []string{"miguel"}
+						fmt.Println(l)
+						followers_counter += 1
+					} else {
+						l := []string{}
+						fmt.Println(l)
+					}
+					// fmt.Println(timeline.GetFollowers(timelines, dht, words[1]))
 				}
 
 			case "help":

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht"
+	UserIDNS "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/userid"
 
 	"github.com/ipfs/go-cid"
 	log "github.com/ipfs/go-log/v2"
@@ -139,18 +140,16 @@ func GetFollowers(timelines []*UserTimeline, dht *dht.KademliaDHT, timelineOwner
 	for _, timeline := range timelines {
 		if timeline.Owner == timelineOwner {
 			for _, peer := range timeline.ListPeers() {
-				fmt.Println("Peer: ", peer.String())
-				// username, err := dht.GetValue("/" + recordpeer.RettiwtPeerNS + "/" + peer.String())
-				// if err != nil {
-				// 	users = append(users, string(username))
-				// } else {
-				// 	timelineLogger.Error(err)
-				// }
+				username, err := dht.GetValue("/" + UserIDNS.UserIDNS + "/" + peer.String())
+				if err != nil {
+					users = append(users, string(username))
+				} else {
+					timelineLogger.Error(err)
+				}
 			}
 		}
 	}
 
-	fmt.Println("Users: ", users)
 	return users
 
 }
@@ -185,7 +184,6 @@ func UnfollowUser(timelines *[]*UserTimeline, timelineOwner string) *UserTimelin
 func (cr *UserTimeline) readLoop(c chan struct{}) {
 	defer close(c)
 	for {
-
 		msg, err := cr.sub.Next(cr.ctx)
 		if err != nil {
 			return
@@ -211,7 +209,7 @@ func updateUserTimeline(userTimeline *UserTimeline, wg *sync.WaitGroup) {
 	select {
 	case <-c:
 
-	case <-time.After(1 * time.Second):
+	case <-time.After(2 * time.Second):
 
 	}
 	wg.Done()
