@@ -8,7 +8,6 @@ import (
 	"os"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/ipfs/go-cid"
 	log "github.com/ipfs/go-log/v2"
@@ -16,7 +15,6 @@ import (
 
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/bootstrap"
 	contentRouting "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/content-routing"
-	peerns "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/core/dht/record/rettiwt-peer"
 	peer "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/rettiwt-peer"
 	postretrieval "git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/rettiwt-peer/post-retrieval"
 	"git.fe.up.pt/sdle/2022/t3/g15/proj2/proj2/timeline"
@@ -128,6 +126,10 @@ func main() {
 		postretrieval.RegisterProtocolHandler(host, &timelines)
 		timelines, personalTimeline = timeline.StartTimelines(*username, dht, pubSub, ctx, host.ID(), *identityFilePath)
 
+		for _, timeline := range timelines {
+			postretrieval.UpdateTimelineMissingPosts(timeline, dht, host, ctx)
+		}
+
 		var text string
 
 		timeline.CacheCleaner(timelines)
@@ -155,29 +157,7 @@ func main() {
 				// Ask dht for history
 				_, currTimeline := timeline.FollowUser(&timelines, pubSub, ctx, host.ID(), words[1])
 
-				marshaledPeerRecord, _ := dht.GetValue("/" + peerns.RettiwtPeerNS + "/" + currTimeline.Owner) // TODO: Handle error
-
-				peerRecord := contentRouting.PeerRecordUnmarshalJson(marshaledPeerRecord)
-				for _, cidRecord := range peerRecord.CidsCache {
-					if !cidRecord.ExpireDate.After(time.Now()) {
-						continue
-					}
-
-					addr, _ := dht.FindProviders(cidRecord.Cid)
-					fmt.Println(addr)
-
-					for _, peer := range addr {
-						post, err := postretrieval.RetrievePost(ctx, host, peer, cidRecord.Cid)
-						if err != nil {
-							fmt.Println(err)
-							continue
-						}
-						fmt.Println(post)
-						currTimeline.Posts[cidRecord.Cid.String()] = *post
-						contentRouting.ProvideNewPost(&cidRecord.Cid, dht, currTimeline.Owner)
-						break
-					}
-				}
+				postretrieval.UpdateTimelineMissingPosts(currTimeline, dht, host, ctx)
 				// Ask dht for providers for each post cid -> Get them and annouce ourselves as providers of them
 				// Follow the user pubsub topic
 

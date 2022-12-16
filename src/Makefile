@@ -11,6 +11,9 @@ test:
 run:
 	go run *.go
 
+clean_nodes:
+	rm -rf nodes/*
+
 clean:
 	go clean
 	rm ${BINARY_NAME}

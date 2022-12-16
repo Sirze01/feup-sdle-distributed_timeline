@@ -233,7 +233,9 @@ func UpdateTimeline(timelines []*UserTimeline) {
 	}
 
 	// TODO: Log instead of printing
-	fmt.Println("CIDS:")
+	if len(allPendingPosts) > 0 {
+		fmt.Println("CIDS:")
+	}
 	for _, cid := range allPendingPosts {
 		fmt.Println(cid.String())
 	}
