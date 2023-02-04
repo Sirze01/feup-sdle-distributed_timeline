@@ -1,5 +1,7 @@
 # Decentralized Timeline
 
+Developed for the 1st Semester's [Large Scale Distributed Systems class (M.EIC004)](https://sigarra.up.pt/feup/en/UCURR_GERAL.FICHA_UC_VIEW?pv_ocorrencia_id=501934) of the Master in Informatics and Computing Engineering (December 2022) 
+
 This project explores the creation of a decentralized timeline service that harvests peer-to-peer and edge devices. 
 
 - Users have an identity and publish small text messages in their local machine, forming a local timeline. 
