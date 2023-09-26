@@ -31,7 +31,7 @@ Only the command line interface is fully functional.
 The `announce` and `publish-substriber` mechanisms are provided by the `DHT` implementation used ([LibP2P](https://libp2p.io/), formerly part of [IPFS](https://ipfs.tech/)).
 
 ## Contributors
-- Carlos Gomes
+- Carlos Gomes ([@carlosmgomes](https://github.com/carlosmgomes))
 - José Costa ([@Sirze01](https://www.github.com/Sirze01))
 - Pedro Silva ([@PedroJSilva2001](https://github.com/PedroJSilva2001))
 - Sérgio Estêvão ([@SergioEstevao11](https://github.com/SergioEstevao11))
